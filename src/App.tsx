@@ -9,6 +9,9 @@ import {
   User,
   UserRole,
   StoreItem,
+  SolarPanelCapacity,
+  SolarPanelProduct,
+  StockMovementLog,
 } from './types';
 import {
   INITIAL_PROGRAMS,
@@ -19,12 +22,16 @@ import {
   INITIAL_STORE_ITEMS,
   USERS,
   DEFAULT_CATEGORIES,
+  DEFAULT_SOLAR_CAPACITIES,
+  INITIAL_SOLAR_PRODUCTS,
+  INITIAL_STOCK_LOGS,
   getStoredData,
   setStoredData,
   initializeStorageIfNeeded,
 } from './data/mockData';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
+import SolarPanelCMS from './components/SolarPanelCMS';
 import Programmes from './components/Programmes';
 import Communities from './components/Communities';
 import Projects from './components/Projects';
@@ -70,6 +77,18 @@ export default function App() {
     return getStoredData<StoreItem[]>('store_items', INITIAL_STORE_ITEMS);
   });
 
+  const [solarCapacities, setSolarCapacities] = useState<SolarPanelCapacity[]>(() => {
+    return getStoredData<SolarPanelCapacity[]>('solar_capacities', DEFAULT_SOLAR_CAPACITIES);
+  });
+
+  const [solarProducts, setSolarProducts] = useState<SolarPanelProduct[]>(() => {
+    return getStoredData<SolarPanelProduct[]>('solar_products', INITIAL_SOLAR_PRODUCTS);
+  });
+
+  const [stockLogs, setStockLogs] = useState<StockMovementLog[]>(() => {
+    return getStoredData<StockMovementLog[]>('stock_logs', INITIAL_STOCK_LOGS);
+  });
+
   const [currentUser, setCurrentUser] = useState<User>(() => {
     return getStoredData<User>('current_user', USERS[0]); // Default to Administrator
   });
@@ -112,6 +131,18 @@ export default function App() {
   useEffect(() => {
     setStoredData('store_items', storeItems);
   }, [storeItems]);
+
+  useEffect(() => {
+    setStoredData('solar_capacities', solarCapacities);
+  }, [solarCapacities]);
+
+  useEffect(() => {
+    setStoredData('solar_products', solarProducts);
+  }, [solarProducts]);
+
+  useEffect(() => {
+    setStoredData('stock_logs', stockLogs);
+  }, [stockLogs]);
 
   useEffect(() => {
     setStoredData('current_user', currentUser);
@@ -378,6 +409,222 @@ export default function App() {
     );
   };
 
+  // ================= SOLAR PANEL CMS HANDLERS =================
+
+  const handleAddSolarProduct = (newProd: Omit<SolarPanelProduct, 'id' | 'createdAt' | 'updatedAt' | 'totalValue'>) => {
+    const id = `sp-${Date.now()}`;
+    const totalValue = newProd.unitPrice * newProd.quantity;
+    const now = new Date().toISOString();
+
+    const createdProduct: SolarPanelProduct = {
+      ...newProd,
+      id,
+      totalValue,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    setSolarProducts(prev => [createdProduct, ...prev]);
+
+    // Record initial stock movement log
+    if (newProd.quantity > 0) {
+      const initialLog: StockMovementLog = {
+        id: `log-${Date.now()}`,
+        productId: id,
+        productName: newProd.name,
+        capacityLabel: newProd.capacityLabel,
+        changeType: 'Initial Intake',
+        quantityChange: newProd.quantity,
+        previousQuantity: 0,
+        newQuantity: newProd.quantity,
+        unitPrice: newProd.unitPrice,
+        totalMovementValue: totalValue,
+        performerName: currentUser.name,
+        performerRole: currentUser.role,
+        timestamp: now,
+        notes: 'Initial product intake into solar panel CMS inventory',
+      };
+      setStockLogs(prev => [initialLog, ...prev]);
+    }
+
+    handleAddAuditLog(
+      'Created Solar Panel Product',
+      `Added solar panel product "${newProd.name}" (${newProd.capacityLabel}) - Qty: ${newProd.quantity}, Unit Price: ₦${newProd.unitPrice.toLocaleString()}`
+    );
+  };
+
+  const handleUpdateSolarProduct = (updated: SolarPanelProduct) => {
+    const totalValue = updated.unitPrice * updated.quantity;
+    const productWithTotal = { ...updated, totalValue, updatedAt: new Date().toISOString() };
+
+    setSolarProducts(prev => prev.map(p => p.id === updated.id ? productWithTotal : p));
+
+    handleAddAuditLog(
+      'Updated Solar Panel Product',
+      `Updated product details for "${updated.name}" (${updated.capacityLabel})`
+    );
+  };
+
+  const handleDeleteSolarProduct = (productId: string) => {
+    const found = solarProducts.find(p => p.id === productId);
+    setSolarProducts(prev => prev.filter(p => p.id !== productId));
+
+    if (found) {
+      handleAddAuditLog(
+        'Deleted Solar Panel Product',
+        `Deleted solar panel product "${found.name}" (${found.capacityLabel})`
+      );
+    }
+  };
+
+  const handleDuplicateSolarProduct = (productId: string) => {
+    const found = solarProducts.find(p => p.id === productId);
+    if (!found) return;
+
+    const dupId = `sp-dup-${Date.now()}`;
+    const dupName = `Copy of ${found.name}`;
+    const now = new Date().toISOString();
+
+    const duplicated: SolarPanelProduct = {
+      ...found,
+      id: dupId,
+      name: dupName,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    setSolarProducts(prev => [duplicated, ...prev]);
+
+    handleAddAuditLog(
+      'Duplicated Solar Panel Product',
+      `Duplicated "${found.name}" as "${dupName}"`
+    );
+  };
+
+  const handleArchiveSolarProduct = (productId: string) => {
+    setSolarProducts(prev => prev.map(p => {
+      if (p.id === productId) {
+        return { ...p, isArchived: true, status: 'Archived', updatedAt: new Date().toISOString() };
+      }
+      return p;
+    }));
+
+    handleAddAuditLog(
+      'Archived Solar Panel Product',
+      `Archived solar panel product ID: ${productId}`
+    );
+  };
+
+  const handleRestoreSolarProduct = (productId: string) => {
+    setSolarProducts(prev => prev.map(p => {
+      if (p.id === productId) {
+        const status = p.quantity <= 0 ? 'Out of Stock' : p.quantity <= p.minStockLevel ? 'Low Stock' : 'In Stock';
+        return { ...p, isArchived: false, status, updatedAt: new Date().toISOString() };
+      }
+      return p;
+    }));
+
+    handleAddAuditLog(
+      'Restored Solar Panel Product',
+      `Restored solar panel product ID: ${productId}`
+    );
+  };
+
+  const handleAdjustSolarStock = (
+    productId: string,
+    changeType: 'Add Stock' | 'Remove Stock' | 'Adjust Stock',
+    qtyChangeOrAbsolute: number,
+    notes: string
+  ) => {
+    const product = solarProducts.find(p => p.id === productId);
+    if (!product) return;
+
+    const prevQty = product.quantity;
+    let newQty = prevQty;
+    let actualChange = 0;
+
+    if (changeType === 'Add Stock') {
+      actualChange = Math.abs(qtyChangeOrAbsolute);
+      newQty = prevQty + actualChange;
+    } else if (changeType === 'Remove Stock') {
+      actualChange = -Math.abs(qtyChangeOrAbsolute);
+      newQty = Math.max(0, prevQty + actualChange);
+    } else {
+      newQty = Math.max(0, qtyChangeOrAbsolute);
+      actualChange = newQty - prevQty;
+    }
+
+    const newStatus = newQty <= 0 ? 'Out of Stock' : newQty <= product.minStockLevel ? 'Low Stock' : 'In Stock';
+    const newTotalValue = newQty * product.unitPrice;
+
+    setSolarProducts(prev => prev.map(p => {
+      if (p.id === productId) {
+        return {
+          ...p,
+          quantity: newQty,
+          status: newStatus,
+          totalValue: newTotalValue,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return p;
+    }));
+
+    // Record Stock Movement Log
+    const log: StockMovementLog = {
+      id: `log-${Date.now()}`,
+      productId: product.id,
+      productName: product.name,
+      capacityLabel: product.capacityLabel,
+      changeType,
+      quantityChange: actualChange,
+      previousQuantity: prevQty,
+      newQuantity: newQty,
+      unitPrice: product.unitPrice,
+      totalMovementValue: Math.abs(actualChange) * product.unitPrice,
+      performerName: currentUser.name,
+      performerRole: currentUser.role,
+      timestamp: new Date().toISOString(),
+      notes,
+    };
+
+    setStockLogs(prev => [log, ...prev]);
+
+    handleAddAuditLog(
+      `Stock Action: ${changeType}`,
+      `Adjusted stock for "${product.name}" (${product.capacityLabel}) from ${prevQty} to ${newQty} units. Notes: ${notes}`
+    );
+  };
+
+  const handleAddSolarCapacity = (cap: Omit<SolarPanelCapacity, 'id'>) => {
+    const id = `cap-custom-${Date.now()}`;
+    const newCap: SolarPanelCapacity = { ...cap, id };
+    setSolarCapacities(prev => [...prev, newCap]);
+
+    handleAddAuditLog(
+      'Added Solar Panel Capacity',
+      `Added custom wattage capacity "${cap.label}" (${cap.wattage}W)`
+    );
+  };
+
+  const handleUpdateSolarCapacity = (cap: SolarPanelCapacity) => {
+    setSolarCapacities(prev => prev.map(c => c.id === cap.id ? cap : c));
+
+    handleAddAuditLog(
+      'Updated Solar Panel Capacity',
+      `Updated capacity label "${cap.label}" (${cap.wattage}W)`
+    );
+  };
+
+  const handleDeleteSolarCapacity = (capId: string) => {
+    setSolarCapacities(prev => prev.filter(c => c.id !== capId));
+
+    handleAddAuditLog(
+      'Deleted Solar Panel Capacity',
+      `Deleted capacity ID: ${capId}`
+    );
+  };
+
   // Render proper view based on active tab
   const renderActiveView = () => {
     switch (activeTab) {
@@ -389,6 +636,28 @@ export default function App() {
             projects={projects}
             expenses={expenses}
             categories={categories}
+            solarProducts={solarProducts}
+            solarCapacities={solarCapacities}
+          />
+        );
+      case 'solar-panels':
+        return (
+          <SolarPanelCMS
+            products={solarProducts}
+            capacities={solarCapacities}
+            stockLogs={stockLogs}
+            currentUserRole={currentUser.role}
+            currentUserName={currentUser.name}
+            onAddProduct={handleAddSolarProduct}
+            onUpdateProduct={handleUpdateSolarProduct}
+            onDeleteProduct={handleDeleteSolarProduct}
+            onDuplicateProduct={handleDuplicateSolarProduct}
+            onArchiveProduct={handleArchiveSolarProduct}
+            onRestoreProduct={handleRestoreSolarProduct}
+            onAdjustStock={handleAdjustSolarStock}
+            onAddCapacity={handleAddSolarCapacity}
+            onUpdateCapacity={handleUpdateSolarCapacity}
+            onDeleteCapacity={handleDeleteSolarCapacity}
           />
         );
       case 'programmes':

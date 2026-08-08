@@ -1,4 +1,17 @@
-import { Program, Community, SolarProject, ExpenseCategory, Expense, AuditLog, User, UserRole, StoreItem } from '../types';
+import { 
+  Program, 
+  Community, 
+  SolarProject, 
+  ExpenseCategory, 
+  Expense, 
+  AuditLog, 
+  User, 
+  UserRole, 
+  StoreItem,
+  SolarPanelCapacity,
+  SolarPanelProduct,
+  StockMovementLog
+} from '../types';
 
 export const DEFAULT_CATEGORIES: ExpenseCategory[] = [
   { id: 'cat-1', name: 'Solar Panels' },
@@ -501,6 +514,258 @@ export const INITIAL_STORE_ITEMS: StoreItem[] = [
   }
 ];
 
+export const DEFAULT_SOLAR_CAPACITIES: SolarPanelCapacity[] = [
+  { id: 'cap-100w', equipmentType: 'Solar Panels', wattage: 100, label: '100W', description: 'Compact panel for small DC lighting & solar water kits' },
+  { id: 'cap-150w', equipmentType: 'Solar Panels', wattage: 150, label: '150W', description: 'Standard residential DC lighting & street light module' },
+  { id: 'cap-200w', equipmentType: 'Solar Panels', wattage: 200, label: '200W', description: 'Small mini-grid & remote health post panel' },
+  { id: 'cap-250w', equipmentType: 'Solar Panels', wattage: 250, label: '250W', description: 'Medium capacity solar home system module' },
+  { id: 'cap-300w', equipmentType: 'Solar Panels', wattage: 300, label: '300W', description: 'Commercial poly/mono module for solar boreholes' },
+  { id: 'cap-350w', equipmentType: 'Solar Panels', wattage: 350, label: '350W', description: 'High-efficiency PERC panel for institutional micro-grids' },
+  { id: 'cap-400w', equipmentType: 'Solar Panels', wattage: 400, label: '400W', description: 'High-output module for mini-grids & solar irrigation' },
+  { id: 'cap-450w', equipmentType: 'Solar Panels', wattage: 450, label: '450W', description: 'Popular utility-grade mono PERC solar panel' },
+  { id: 'cap-500w', equipmentType: 'Solar Panels', wattage: 500, label: '500W', description: 'Heavy-duty 144-half-cell solar power module' },
+  { id: 'cap-550w', equipmentType: 'Solar Panels', wattage: 550, label: '550W', description: 'Flagship TOPCon / PERC tier-1 solar module' },
+  { id: 'cap-600w', equipmentType: 'Solar Panels', wattage: 600, label: '600W', description: 'Ultra-high power bifacial module for mini-grid farms' },
+  { id: 'cap-650w', equipmentType: 'Solar Panels', wattage: 650, label: '650W', description: 'Large format industrial utility-scale solar panel' },
+  { id: 'cap-700w', equipmentType: 'Solar Panels', wattage: 700, label: '700W+', description: 'Next-gen 210mm wafer ultra-power solar module' },
+];
+
+export const INITIAL_SOLAR_PRODUCTS: SolarPanelProduct[] = [
+  {
+    id: 'sp-1',
+    equipmentType: 'Solar Panels',
+    name: 'Jinko Tiger Neo 550W N-Type TOPCon Mono',
+    capacityId: 'cap-550w',
+    capacityWattage: 550,
+    capacityLabel: '550W',
+    brand: 'Jinko Solar',
+    modelNumber: 'JKM550N-72HL4-V',
+    panelType: 'N-Type TOPCon',
+    efficiency: '21.3%',
+    voltage: '41.51V Vmp / 49.80V Voc',
+    dimensions: '2278 x 1134 x 35 mm',
+    warranty: '12 Yrs Workmanship / 30 Yrs Linear Power',
+    description: 'Tier-1 ultra-high efficiency TOPCon module with superior low-light performance and minimal degradation.',
+    imageUrl: 'https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?auto=format&fit=crop&w=800&q=80',
+    supplier: 'Wavetech Power Solutions Ltd',
+    unitPrice: 220000,
+    quantity: 100,
+    minStockLevel: 20,
+    totalValue: 22000000, // 220000 * 100
+    status: 'In Stock',
+    isArchived: false,
+    createdAt: '2026-05-10T09:00:00Z',
+    updatedAt: '2026-07-15T14:30:00Z',
+  },
+  {
+    id: 'sp-2',
+    equipmentType: 'Solar Panels',
+    name: 'Canadian Solar HiKu6 450W Mono PERC',
+    capacityId: 'cap-450w',
+    capacityWattage: 450,
+    capacityLabel: '450W',
+    brand: 'Canadian Solar',
+    modelNumber: 'CS6W-450MS',
+    panelType: 'Monocrystalline',
+    efficiency: '20.8%',
+    voltage: '41.30V Vmp / 49.30V Voc',
+    dimensions: '2108 x 1048 x 35 mm',
+    warranty: '12 Yrs Product / 25 Yrs Performance',
+    description: 'Reliable half-cut cell module engineered for high ambient temperature rural electrification projects.',
+    imageUrl: 'https://images.unsplash.com/photo-1509391365360-2e959784a276?auto=format&fit=crop&w=800&q=80',
+    supplier: 'Solarpower Direct West Africa',
+    unitPrice: 180000,
+    quantity: 30,
+    minStockLevel: 15,
+    totalValue: 5400000, // 180000 * 30
+    status: 'In Stock',
+    isArchived: false,
+    createdAt: '2026-05-12T10:15:00Z',
+    updatedAt: '2026-07-20T11:00:00Z',
+  },
+  {
+    id: 'sp-3',
+    equipmentType: 'Solar Panels',
+    name: 'LONGi Hi-MO 6 Scientist 600W Monocrystalline',
+    capacityId: 'cap-600w',
+    capacityWattage: 600,
+    capacityLabel: '600W',
+    brand: 'LONGi Solar',
+    modelNumber: 'LR5-72HPH-600M',
+    panelType: 'Monocrystalline',
+    efficiency: '22.1%',
+    voltage: '45.20V Vmp / 53.80V Voc',
+    dimensions: '2384 x 1134 x 35 mm',
+    warranty: '15 Yrs Product / 25 Yrs Linear Output',
+    description: 'High power density HPBC module tailored for commercial rooftop & solar mini-grid installations.',
+    imageUrl: 'https://images.unsplash.com/photo-1545259741-2ea3ebf61fa3?auto=format&fit=crop&w=800&q=80',
+    supplier: 'GreenEnergy Hub Lagos',
+    unitPrice: 250000,
+    quantity: 50,
+    minStockLevel: 15,
+    totalValue: 12500000, // 250000 * 50
+    status: 'In Stock',
+    isArchived: false,
+    createdAt: '2026-06-01T08:00:00Z',
+    updatedAt: '2026-07-25T16:00:00Z',
+  },
+  {
+    id: 'sp-4',
+    equipmentType: 'Solar Panels',
+    name: 'Trina Vertex S 300W Compact Module',
+    capacityId: 'cap-300w',
+    capacityWattage: 300,
+    capacityLabel: '300W',
+    brand: 'Trina Solar',
+    modelNumber: 'TSM-300DE06',
+    panelType: 'Polycrystalline',
+    efficiency: '18.5%',
+    voltage: '32.60V Vmp / 39.80V Voc',
+    dimensions: '1650 x 992 x 35 mm',
+    warranty: '10 Yrs Product / 25 Yrs Performance',
+    description: 'Sturdy polycrystalline solar panel for solar boreholes and street lighting installations.',
+    imageUrl: 'https://images.unsplash.com/photo-1592833159057-6514272330a6?auto=format&fit=crop&w=800&q=80',
+    supplier: 'Solarpower Direct West Africa',
+    unitPrice: 120000,
+    quantity: 50,
+    minStockLevel: 20,
+    totalValue: 6000000, // 120000 * 50
+    status: 'In Stock',
+    isArchived: false,
+    createdAt: '2026-06-10T12:00:00Z',
+    updatedAt: '2026-07-28T09:30:00Z',
+  },
+  {
+    id: 'sp-5',
+    equipmentType: 'Solar Panels',
+    name: 'Felicity Solar 350W Mono PERC Module',
+    capacityId: 'cap-350w',
+    capacityWattage: 350,
+    capacityLabel: '350W',
+    brand: 'Felicity Solar',
+    modelNumber: 'FL-350M-60',
+    panelType: 'PERC',
+    efficiency: '19.8%',
+    voltage: '36.80V Vmp / 44.20V Voc',
+    dimensions: '1755 x 1038 x 35 mm',
+    warranty: '10 Yrs Product / 25 Yrs Performance',
+    description: 'Versatile PERC panel designed for residential solar systems and healthcare clinic backup power.',
+    imageUrl: 'https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?auto=format&fit=crop&w=800&q=80',
+    supplier: 'Felicity Solar Depot Lagos',
+    unitPrice: 140000,
+    quantity: 12,
+    minStockLevel: 20, // Quantity (12) <= minStockLevel (20) -> Low Stock
+    totalValue: 1680000,
+    status: 'Low Stock',
+    isArchived: false,
+    createdAt: '2026-06-15T14:20:00Z',
+    updatedAt: '2026-08-01T10:00:00Z',
+  },
+  {
+    id: 'sp-6',
+    equipmentType: 'Solar Panels',
+    name: 'Suntech Ultra V 650W Bifacial Module',
+    capacityId: 'cap-650w',
+    capacityWattage: 650,
+    capacityLabel: '650W',
+    brand: 'Suntech',
+    modelNumber: 'STP650-A66/Vnh',
+    panelType: 'Bifacial',
+    efficiency: '22.3%',
+    voltage: '46.10V Vmp / 55.20V Voc',
+    dimensions: '2384 x 1303 x 35 mm',
+    warranty: '12 Yrs Product / 30 Yrs Output',
+    description: 'Dual-glass bifacial panel capturing ambient albedo gain from ground surfaces for up to +25% extra yield.',
+    imageUrl: 'https://images.unsplash.com/photo-1509391365360-2e959784a276?auto=format&fit=crop&w=800&q=80',
+    supplier: 'Suntech Energy Nigeria',
+    unitPrice: 280000,
+    quantity: 0,
+    minStockLevel: 10,
+    totalValue: 0,
+    status: 'Out of Stock',
+    isArchived: false,
+    createdAt: '2026-06-18T11:00:00Z',
+    updatedAt: '2026-08-02T15:45:00Z',
+  },
+  {
+    id: 'sp-7',
+    equipmentType: 'Solar Panels',
+    name: 'Suntech 700W+ Ultra High Power Commercial',
+    capacityId: 'cap-700w',
+    capacityWattage: 720,
+    capacityLabel: '700W+',
+    brand: 'Suntech',
+    modelNumber: 'STP720-A66/Xnh',
+    panelType: 'Bifacial',
+    efficiency: '22.8%',
+    voltage: '48.20V Vmp / 57.10V Voc',
+    dimensions: '2472 x 1303 x 35 mm',
+    warranty: '15 Yrs Product / 30 Yrs Output',
+    description: 'Next-generation 210mm wafer ultra-power solar panel built for utility scale solar power stations.',
+    imageUrl: 'https://images.unsplash.com/photo-1545259741-2ea3ebf61fa3?auto=format&fit=crop&w=800&q=80',
+    supplier: 'Megawatt Energy Partners',
+    unitPrice: 320000,
+    quantity: 20,
+    minStockLevel: 10,
+    totalValue: 6400000,
+    status: 'In Stock',
+    isArchived: false,
+    createdAt: '2026-06-25T09:30:00Z',
+    updatedAt: '2026-08-05T08:15:00Z',
+  }
+];
+
+export const INITIAL_STOCK_LOGS: StockMovementLog[] = [
+  {
+    id: 'log-1',
+    productId: 'sp-1',
+    productName: 'Jinko Tiger Neo 550W N-Type TOPCon Mono',
+    capacityLabel: '550W',
+    changeType: 'Initial Intake',
+    quantityChange: 100,
+    previousQuantity: 0,
+    newQuantity: 100,
+    unitPrice: 220000,
+    totalMovementValue: 22000000,
+    performerName: 'Amina Abubakar',
+    performerRole: 'Administrator',
+    timestamp: '2026-05-10T09:00:00Z',
+    notes: 'Initial warehouse receipt from Wavetech shipment invoice #WV-8891'
+  },
+  {
+    id: 'log-2',
+    productId: 'sp-2',
+    productName: 'Canadian Solar HiKu6 450W Mono PERC',
+    capacityLabel: '450W',
+    changeType: 'Dispatch to Site',
+    quantityChange: -20,
+    previousQuantity: 50,
+    newQuantity: 30,
+    unitPrice: 180000,
+    totalMovementValue: 3600000,
+    performerName: 'David Okon',
+    performerRole: 'Field Engineer',
+    timestamp: '2026-07-20T11:00:00Z',
+    notes: 'Dispatched for Offa Solar Mini Grid expansion phase 2'
+  },
+  {
+    id: 'log-3',
+    productId: 'sp-5',
+    productName: 'Felicity Solar 350W Mono PERC Module',
+    capacityLabel: '350W',
+    changeType: 'Remove Stock',
+    quantityChange: -8,
+    previousQuantity: 20,
+    newQuantity: 12,
+    unitPrice: 140000,
+    totalMovementValue: 1120000,
+    performerName: 'Ibrahim Bello',
+    performerRole: 'Project Manager',
+    timestamp: '2026-08-01T10:00:00Z',
+    notes: 'Allocated for Gwarinpa Health Clinic solar power upgrade'
+  }
+];
+
 const LOCAL_STORAGE_KEY_PREFIX = 'solar_tracker_';
 
 export function getStoredData<T>(key: string, defaultValue: T): T {
@@ -547,4 +812,14 @@ export function initializeStorageIfNeeded(): void {
   if (!localStorage.getItem(LOCAL_STORAGE_KEY_PREFIX + 'current_user')) {
     setStoredData('current_user', USERS[0]); // Default to Administrator
   }
+  if (!localStorage.getItem(LOCAL_STORAGE_KEY_PREFIX + 'solar_capacities')) {
+    setStoredData('solar_capacities', DEFAULT_SOLAR_CAPACITIES);
+  }
+  if (!localStorage.getItem(LOCAL_STORAGE_KEY_PREFIX + 'solar_products')) {
+    setStoredData('solar_products', INITIAL_SOLAR_PRODUCTS);
+  }
+  if (!localStorage.getItem(LOCAL_STORAGE_KEY_PREFIX + 'stock_logs')) {
+    setStoredData('stock_logs', INITIAL_STOCK_LOGS);
+  }
 }
+

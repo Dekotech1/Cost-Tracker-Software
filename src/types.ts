@@ -121,3 +121,81 @@ export interface StoreItem {
   manufacturer: string;
 }
 
+// ================= SOLAR PANEL & EQUIPMENT CMS TYPES =================
+
+export type EquipmentType = 
+  | 'Solar Panels' 
+  | 'Inverters' 
+  | 'Batteries' 
+  | 'Charge Controllers' 
+  | 'Mounting Systems' 
+  | 'Cables' 
+  | 'Solar Accessories';
+
+export type PanelType = 
+  | 'Monocrystalline' 
+  | 'Polycrystalline' 
+  | 'Bifacial' 
+  | 'Thin-Film' 
+  | 'PERC' 
+  | 'N-Type TOPCon' 
+  | 'HJT';
+
+export type AvailabilityStatus = 'In Stock' | 'Low Stock' | 'Out of Stock' | 'Archived';
+
+export interface SolarPanelCapacity {
+  id: string;
+  equipmentType: EquipmentType;
+  wattage: number; // e.g. 550 for 550W
+  label: string; // e.g. "550W"
+  description?: string;
+  isCustom?: boolean;
+}
+
+export interface SolarPanelProduct {
+  id: string;
+  equipmentType: EquipmentType;
+  name: string; // e.g., "Jinko 550W Monocrystalline Panel"
+  capacityId: string; // Ref to SolarPanelCapacity
+  capacityWattage: number; // e.g. 550
+  capacityLabel: string; // e.g. "550W"
+  brand: string; // e.g., "Jinko Solar", "Canadian Solar", "LONGi", "Trina"
+  modelNumber: string; // e.g., "JKM550N-72HL4-V"
+  panelType: PanelType;
+  efficiency: string; // e.g., "21.3%"
+  voltage: string; // e.g., "41.51V Vmp / 49.80V Voc"
+  dimensions: string; // e.g., "2278 x 1134 x 35 mm"
+  warranty: string; // e.g., "12 Yrs Product / 25 Yrs Output"
+  description: string;
+  imageUrl: string;
+  supplier: string; // e.g., "Wavetech Power Direct"
+  unitPrice: number; // ₦
+  quantity: number; // Current physical stock
+  minStockLevel: number; // Low stock warning threshold
+  totalValue: number; // Computed: unitPrice * quantity
+  status: AvailabilityStatus;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type StockMovementType = 'Add Stock' | 'Remove Stock' | 'Adjust Stock' | 'Dispatch to Site' | 'Initial Intake';
+
+export interface StockMovementLog {
+  id: string;
+  productId: string;
+  productName: string;
+  capacityLabel: string;
+  changeType: StockMovementType;
+  quantityChange: number; // e.g. +50 or -10
+  previousQuantity: number;
+  newQuantity: number;
+  unitPrice: number;
+  totalMovementValue: number;
+  performerName: string;
+  performerRole: UserRole;
+  timestamp: string;
+  notes: string;
+  projectId?: string;
+}
+

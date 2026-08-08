@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Program, Community, SolarProject, Expense, ExpenseCategory } from '../types';
+import { Program, Community, SolarProject, Expense, ExpenseCategory, SolarPanelProduct, SolarPanelCapacity } from '../types';
 import {
   TrendingUp,
   Landmark,
@@ -11,6 +11,10 @@ import {
   AlertTriangle,
   Receipt,
   AlertOctagon,
+  Sun,
+  Zap,
+  Package,
+  Warehouse,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -34,6 +38,8 @@ interface DashboardProps {
   projects: SolarProject[];
   expenses: Expense[];
   categories: ExpenseCategory[];
+  solarProducts?: SolarPanelProduct[];
+  solarCapacities?: SolarPanelCapacity[];
 }
 
 const COLORS = [
@@ -54,6 +60,8 @@ export default function Dashboard({
   projects,
   expenses,
   categories,
+  solarProducts = [],
+  solarCapacities = [],
 }: DashboardProps) {
   // 1. Core KPIs
   const kpis = useMemo(() => {
@@ -263,6 +271,46 @@ export default function Dashboard({
     return [...expenses].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   }, [expenses]);
 
+  // Solar Panel Inventory Summary (Requirement #9)
+  const solarInventoryMetrics = useMemo(() => {
+    const activePanels = solarProducts.filter(p => p.equipmentType === 'Solar Panels' && !p.isArchived);
+    const totalTypes = activePanels.length;
+    let totalPhysicalPanels = 0;
+    let totalInventoryValue = 0;
+    let lowStockCount = 0;
+    let outOfStockCount = 0;
+
+    const capacityMap: Record<string, number> = {};
+
+    // Initialize all capacities with 0 so all appear in capacity summary
+    solarCapacities.forEach(c => {
+      capacityMap[c.label] = 0;
+    });
+
+    activePanels.forEach(p => {
+      totalPhysicalPanels += p.quantity;
+      totalInventoryValue += p.totalValue;
+
+      if (p.quantity <= 0) {
+        outOfStockCount++;
+      } else if (p.quantity <= p.minStockLevel) {
+        lowStockCount++;
+      }
+
+      const capLabel = p.capacityLabel || 'Custom';
+      capacityMap[capLabel] = (capacityMap[capLabel] || 0) + p.quantity;
+    });
+
+    return {
+      totalTypes,
+      totalPhysicalPanels,
+      totalInventoryValue,
+      lowStockCount,
+      outOfStockCount,
+      capacityEntries: Object.entries(capacityMap)
+    };
+  }, [solarProducts, solarCapacities]);
+
   // Color warning helpers
   const getUtilizationColor = (pct: number) => {
     if (pct >= 100) return 'text-rose-600 bg-rose-50 border-rose-200';
@@ -376,6 +424,69 @@ export default function Dashboard({
           <CheckCircle2 className="h-5 w-5 text-emerald-400 mx-auto mb-1" />
           <p className="text-xl font-bold font-sans text-emerald-400">{kpis.completedProj}</p>
           <span className="text-[10px] font-semibold text-emerald-400/60 uppercase tracking-wider">Completed</span>
+        </div>
+      </div>
+
+      {/* SOLAR PANEL INVENTORY DASHBOARD SUMMARY (Requirement #9) */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border border-white/10 rounded-2xl p-5 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl">
+              <Sun className="h-5 w-5 animate-pulse" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white tracking-tight">Solar Panel Inventory Statistics</h3>
+              <p className="text-xs text-white/50">Capacity breakdown, physical counts, and total inventory capitalization</p>
+            </div>
+          </div>
+        </div>
+
+        {/* 5 Core Inventory Metrics */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+            <span className="text-[10px] font-mono text-white/50 uppercase">Panel Types</span>
+            <p className="text-lg font-bold text-white mt-0.5">{solarInventoryMetrics.totalTypes} Models</p>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+            <span className="text-[10px] font-mono text-white/50 uppercase">Total Panels</span>
+            <p className="text-lg font-bold text-amber-300 mt-0.5">{solarInventoryMetrics.totalPhysicalPanels.toLocaleString()} Units</p>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+            <span className="text-[10px] font-mono text-white/50 uppercase">Inventory Value</span>
+            <p className="text-base font-extrabold text-emerald-400 font-mono mt-0.5">{formatCurrency(solarInventoryMetrics.totalInventoryValue)}</p>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+            <span className="text-[10px] font-mono text-white/50 uppercase">Low Stock Alerts</span>
+            <p className="text-lg font-bold text-amber-400 mt-0.5">{solarInventoryMetrics.lowStockCount} Products</p>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-3 col-span-2 sm:col-span-1">
+            <span className="text-[10px] font-mono text-white/50 uppercase">Out of Stock</span>
+            <p className="text-lg font-bold text-rose-400 mt-0.5">{solarInventoryMetrics.outOfStockCount} Products</p>
+          </div>
+        </div>
+
+        {/* Capacity Breakdown Pills */}
+        <div className="pt-2">
+          <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider block mb-2">
+            Capacity Summary Breakdown:
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {solarInventoryMetrics.capacityEntries.map(([label, count]) => (
+              <div 
+                key={label}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-mono flex items-center gap-1.5 ${
+                  count > 0 ? 'bg-amber-500/10 border-amber-500/20 text-white' : 'bg-white/5 border-white/5 text-white/30'
+                }`}
+              >
+                <span className="font-bold text-amber-400">{label}:</span>
+                <span className="font-semibold">{count} panels</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

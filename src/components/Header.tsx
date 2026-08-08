@@ -21,10 +21,11 @@ export default function Header({
 }: HeaderProps) {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'solar-panels', label: 'Solar Panels CMS', icon: Sun },
     { id: 'programmes', label: 'Programmes', icon: Landmark },
     { id: 'communities', label: 'Communities', icon: Users2 },
     { id: 'projects', label: 'Solar Projects', icon: Sun },
-    { id: 'store', label: 'Store & Inventory', icon: Warehouse },
+    { id: 'store', label: 'General Warehouse', icon: Warehouse },
     { id: 'expenses', label: 'Expenses', icon: PiggyBank },
     { id: 'reports', label: 'Reports & Export', icon: FileText },
     { id: 'audit', label: 'Audit Trail', icon: History },
