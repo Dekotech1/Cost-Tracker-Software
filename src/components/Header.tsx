@@ -42,7 +42,7 @@ export default function Header({
               <Sun className="h-6 w-6 animate-pulse" />
             </div>
             <div>
-              <h1 className="font-sans font-bold text-lg text-white bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70 tracking-tight">EaseMe</h1>
+              <h1 className="font-sans font-bold text-lg text-white bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70 tracking-tight">Ease My Work</h1>
               <p className="font-mono text-[10px] text-white/40 uppercase tracking-widest leading-none">Internal Cost Portal</p>
             </div>
           </div>

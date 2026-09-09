@@ -893,6 +893,8 @@ export default function App() {
             categories={categories}
             solarProducts={solarProducts}
             solarCapacities={solarCapacities}
+            logisticsProducts={logisticsProducts}
+            stockBalances={stockBalances}
           />
         );
       case 'logistics':

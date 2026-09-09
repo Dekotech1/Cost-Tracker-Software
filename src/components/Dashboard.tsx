@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Program, Community, SolarProject, Expense, ExpenseCategory, SolarPanelProduct, SolarPanelCapacity } from '../types';
+import { RenewableProduct, DynamicStockBalance } from '../types/logistics';
 import {
   TrendingUp,
   Landmark,
@@ -15,6 +16,13 @@ import {
   Zap,
   Package,
   Warehouse,
+  Cpu,
+  Building2,
+  SlidersHorizontal,
+  ArrowUpDown,
+  Search,
+  Boxes,
+  Layers,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -40,6 +48,8 @@ interface DashboardProps {
   categories: ExpenseCategory[];
   solarProducts?: SolarPanelProduct[];
   solarCapacities?: SolarPanelCapacity[];
+  logisticsProducts?: RenewableProduct[];
+  stockBalances?: DynamicStockBalance[];
 }
 
 const COLORS = [
@@ -62,6 +72,8 @@ export default function Dashboard({
   categories,
   solarProducts = [],
   solarCapacities = [],
+  logisticsProducts = [],
+  stockBalances = [],
 }: DashboardProps) {
   // 1. Core KPIs
   const kpis = useMemo(() => {
@@ -271,45 +283,243 @@ export default function Dashboard({
     return [...expenses].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   }, [expenses]);
 
-  // Solar Panel Inventory Summary (Requirement #9)
-  const solarInventoryMetrics = useMemo(() => {
-    const activePanels = solarProducts.filter(p => p.equipmentType === 'Solar Panels' && !p.isArchived);
-    const totalTypes = activePanels.length;
-    let totalPhysicalPanels = 0;
-    let totalInventoryValue = 0;
+  // Inventory Statistics State & Calculations
+  const [inventorySortBy, setInventorySortBy] = useState<'items' | 'specification' | 'oem'>('items');
+  const [inventorySortOrder, setInventorySortOrder] = useState<'asc' | 'desc'>('asc');
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [inventoryCategoryFilter, setInventoryCategoryFilter] = useState('All');
+
+  // Unified Inventory Items
+  const allInventoryItems = useMemo(() => {
+    // 1. Map Solar Products from CMS
+    const solarItems = solarProducts
+      .filter((p) => !p.isArchived)
+      .map((p) => {
+        const status: 'In Stock' | 'Low Stock' | 'Out of Stock' =
+          p.quantity <= 0 ? 'Out of Stock' : p.quantity <= p.minStockLevel ? 'Low Stock' : 'In Stock';
+        return {
+          id: p.id,
+          name: p.name,
+          category: p.equipmentType || 'Solar Panels',
+          modelNumber: p.modelNumber || 'N/A',
+          oem: p.brand || 'Unspecified OEM',
+          specification: p.capacityLabel ? `${p.capacityLabel} (${p.panelType || 'Module'})` : (p.panelType || 'Standard Module'),
+          specNumeric: p.capacityWattage || 0,
+          specSecondary: [p.voltage, p.efficiency ? `Eff: ${p.efficiency}` : null].filter(Boolean).join(' • '),
+          quantity: p.quantity,
+          minStockLevel: p.minStockLevel,
+          unitPrice: p.unitPrice,
+          totalValue: p.totalValue || p.quantity * p.unitPrice,
+          status,
+          supplier: p.supplier,
+          source: 'Solar CMS',
+        };
+      });
+
+    // 2. Map Logistics Products (deduplicating by model/sku)
+    const existingModelSet = new Set(solarItems.map((i) => i.modelNumber.toLowerCase()));
+    const logisticItems = (logisticsProducts || [])
+      .filter((lp) => !existingModelSet.has((lp.sku || lp.modelNumber || '').toLowerCase()))
+      .map((lp) => {
+        const balances = (stockBalances || []).filter((b) => b.productId === lp.id);
+        const totalStock =
+          balances.length > 0
+            ? balances.reduce((sum, b) => sum + b.currentStock, 0)
+            : Object.values(lp.initialStockPerStore || {}).reduce((sum, v) => sum + v, 0);
+
+        const minStock =
+          Object.values(lp.minThresholdPerStore || {}).reduce((sum, v) => sum + v, 0) || 10;
+
+        const status: 'In Stock' | 'Low Stock' | 'Out of Stock' =
+          totalStock <= 0 ? 'Out of Stock' : totalStock <= minStock ? 'Low Stock' : 'In Stock';
+
+        const specLabel = lp.specs?.wattage
+          ? `${lp.specs.wattage}W`
+          : lp.specs?.capacityKwh
+          ? `${lp.specs.capacityKwh} kWh`
+          : lp.specs?.voltage || 'Standard Hardware';
+
+        const specNumeric =
+          lp.specs?.wattage || (lp.specs?.capacityKwh ? lp.specs.capacityKwh * 1000 : 0);
+
+        const specSecondary = [
+          lp.specs?.voltage,
+          lp.specs?.chemistry,
+          lp.specs?.efficiency ? `Eff: ${lp.specs.efficiency}` : null,
+        ]
+          .filter(Boolean)
+          .join(' • ');
+
+        return {
+          id: lp.id,
+          name: lp.name,
+          category: lp.category || 'Renewable Hardware',
+          modelNumber: lp.sku || lp.modelNumber || 'N/A',
+          oem: lp.brand || 'Tier-1 OEM',
+          specification: specLabel,
+          specNumeric,
+          specSecondary,
+          quantity: totalStock,
+          minStockLevel: minStock,
+          unitPrice: lp.unitCost,
+          totalValue: totalStock * lp.unitCost,
+          status,
+          supplier: undefined,
+          source: 'Nationwide Logistics',
+        };
+      });
+
+    return [...solarItems, ...logisticItems];
+  }, [solarProducts, logisticsProducts, stockBalances]);
+
+  // Overall Inventory Metrics
+  const inventoryMetrics = useMemo(() => {
+    const totalItems = allInventoryItems.length;
+    let totalUnits = 0;
+    let totalValuation = 0;
     let lowStockCount = 0;
     let outOfStockCount = 0;
 
-    const capacityMap: Record<string, number> = {};
-
-    // Initialize all capacities with 0 so all appear in capacity summary
-    solarCapacities.forEach(c => {
-      capacityMap[c.label] = 0;
-    });
-
-    activePanels.forEach(p => {
-      totalPhysicalPanels += p.quantity;
-      totalInventoryValue += p.totalValue;
-
-      if (p.quantity <= 0) {
-        outOfStockCount++;
-      } else if (p.quantity <= p.minStockLevel) {
-        lowStockCount++;
-      }
-
-      const capLabel = p.capacityLabel || 'Custom';
-      capacityMap[capLabel] = (capacityMap[capLabel] || 0) + p.quantity;
+    allInventoryItems.forEach((item) => {
+      totalUnits += item.quantity;
+      totalValuation += item.totalValue;
+      if (item.status === 'Out of Stock') outOfStockCount++;
+      else if (item.status === 'Low Stock') lowStockCount++;
     });
 
     return {
-      totalTypes,
-      totalPhysicalPanels,
-      totalInventoryValue,
+      totalItems,
+      totalUnits,
+      totalValuation,
       lowStockCount,
       outOfStockCount,
-      capacityEntries: Object.entries(capacityMap)
     };
-  }, [solarProducts, solarCapacities]);
+  }, [allInventoryItems]);
+
+  // Available Categories for filtering
+  const availableCategories = useMemo(() => {
+    const set = new Set(allInventoryItems.map((i) => i.category));
+    return ['All', ...Array.from(set)];
+  }, [allInventoryItems]);
+
+  // Dynamic Grouping Summaries based on selected sort:
+  // 1. Grouped by OEM
+  const oemStatistics = useMemo(() => {
+    const map: Record<
+      string,
+      { oem: string; totalUnits: number; totalValuation: number; itemCount: number; categories: Set<string> }
+    > = {};
+
+    allInventoryItems.forEach((item) => {
+      if (!map[item.oem]) {
+        map[item.oem] = {
+          oem: item.oem,
+          totalUnits: 0,
+          totalValuation: 0,
+          itemCount: 0,
+          categories: new Set(),
+        };
+      }
+      map[item.oem].totalUnits += item.quantity;
+      map[item.oem].totalValuation += item.totalValue;
+      map[item.oem].itemCount += 1;
+      map[item.oem].categories.add(item.category);
+    });
+
+    return Object.values(map).sort((a, b) => b.totalValuation - a.totalValuation);
+  }, [allInventoryItems]);
+
+  // 2. Grouped by Specification
+  const specificationStatistics = useMemo(() => {
+    const map: Record<
+      string,
+      { spec: string; specNumeric: number; totalUnits: number; totalValuation: number; itemCount: number }
+    > = {};
+
+    allInventoryItems.forEach((item) => {
+      const key = item.specification;
+      if (!map[key]) {
+        map[key] = {
+          spec: key,
+          specNumeric: item.specNumeric,
+          totalUnits: 0,
+          totalValuation: 0,
+          itemCount: 0,
+        };
+      }
+      map[key].totalUnits += item.quantity;
+      map[key].totalValuation += item.totalValue;
+      map[key].itemCount += 1;
+    });
+
+    return Object.values(map).sort((a, b) => b.specNumeric - a.specNumeric || b.totalUnits - a.totalUnits);
+  }, [allInventoryItems]);
+
+  // 3. Grouped by Items / Category
+  const itemCategoryStatistics = useMemo(() => {
+    const map: Record<
+      string,
+      { category: string; totalUnits: number; totalValuation: number; itemCount: number }
+    > = {};
+
+    allInventoryItems.forEach((item) => {
+      if (!map[item.category]) {
+        map[item.category] = {
+          category: item.category,
+          totalUnits: 0,
+          totalValuation: 0,
+          itemCount: 0,
+        };
+      }
+      map[item.category].totalUnits += item.quantity;
+      map[item.category].totalValuation += item.totalValue;
+      map[item.category].itemCount += 1;
+    });
+
+    return Object.values(map).sort((a, b) => b.totalValuation - a.totalValuation);
+  }, [allInventoryItems]);
+
+  // Filtered and Sorted Items for the Table
+  const filteredAndSortedItems = useMemo(() => {
+    let list = [...allInventoryItems];
+
+    if (inventorySearch.trim()) {
+      const q = inventorySearch.toLowerCase();
+      list = list.filter(
+        (item) =>
+          item.name.toLowerCase().includes(q) ||
+          item.oem.toLowerCase().includes(q) ||
+          item.specification.toLowerCase().includes(q) ||
+          item.modelNumber.toLowerCase().includes(q) ||
+          item.category.toLowerCase().includes(q)
+      );
+    }
+
+    if (inventoryCategoryFilter !== 'All') {
+      list = list.filter((item) => item.category === inventoryCategoryFilter);
+    }
+
+    list.sort((a, b) => {
+      let cmp = 0;
+      if (inventorySortBy === 'items') {
+        cmp = a.name.localeCompare(b.name);
+        if (cmp === 0) cmp = a.modelNumber.localeCompare(b.modelNumber);
+      } else if (inventorySortBy === 'specification') {
+        if (a.specNumeric !== b.specNumeric) {
+          cmp = a.specNumeric - b.specNumeric;
+        } else {
+          cmp = a.specification.localeCompare(b.specification);
+        }
+      } else if (inventorySortBy === 'oem') {
+        cmp = a.oem.localeCompare(b.oem);
+        if (cmp === 0) cmp = a.name.localeCompare(b.name);
+      }
+
+      return inventorySortOrder === 'asc' ? cmp : -cmp;
+    });
+
+    return list;
+  }, [allInventoryItems, inventorySearch, inventoryCategoryFilter, inventorySortBy, inventorySortOrder]);
 
   // Color warning helpers
   const getUtilizationColor = (pct: number) => {
@@ -427,66 +637,360 @@ export default function Dashboard({
         </div>
       </div>
 
-      {/* SOLAR PANEL INVENTORY DASHBOARD SUMMARY (Requirement #9) */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border border-white/10 rounded-2xl p-5 shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl">
-              <Sun className="h-5 w-5 animate-pulse" />
+      {/* INVENTORY STATISTICS DASHBOARD SECTION */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border border-white/10 rounded-2xl p-5 shadow-xl space-y-5">
+        {/* Section Header with Sort Controls */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-white/10 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-gradient-to-br from-amber-400/20 via-emerald-500/20 to-indigo-500/20 border border-amber-500/30 text-amber-400 rounded-xl shadow-inner">
+              <Boxes className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">Solar Panel Inventory Statistics</h3>
-              <p className="text-xs text-white/50">Capacity breakdown, physical counts, and total inventory capitalization</p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-white tracking-tight">Inventory Statistics</h3>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-semibold">
+                  Sorted by {inventorySortBy === 'items' ? 'Items' : inventorySortBy === 'specification' ? 'Specification' : 'OEM'}
+                </span>
+              </div>
+              <p className="text-xs text-white/50">
+                Physical stock levels, technical specifications, capitalization, and OEM breakdown
+              </p>
             </div>
+          </div>
+
+          {/* Sort Selection & Order Controls */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center bg-white/5 border border-white/10 rounded-xl p-1">
+              <span className="text-[11px] font-mono text-white/40 uppercase px-2 hidden sm:inline">Sort by:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (inventorySortBy === 'items') {
+                    setInventorySortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+                  } else {
+                    setInventorySortBy('items');
+                    setInventorySortOrder('asc');
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+                  inventorySortBy === 'items'
+                    ? 'bg-amber-400 text-slate-950 shadow-md font-bold'
+                    : 'text-white/70 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Package className="h-3.5 w-3.5" />
+                <span>Items</span>
+                {inventorySortBy === 'items' && (
+                  <span className="text-[10px] font-mono px-1 py-0.2 bg-black/20 rounded">
+                    {inventorySortOrder === 'asc' ? 'A→Z' : 'Z→A'}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (inventorySortBy === 'specification') {
+                    setInventorySortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+                  } else {
+                    setInventorySortBy('specification');
+                    setInventorySortOrder('desc');
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+                  inventorySortBy === 'specification'
+                    ? 'bg-amber-400 text-slate-950 shadow-md font-bold'
+                    : 'text-white/70 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Cpu className="h-3.5 w-3.5" />
+                <span>Specification</span>
+                {inventorySortBy === 'specification' && (
+                  <span className="text-[10px] font-mono px-1 py-0.2 bg-black/20 rounded">
+                    {inventorySortOrder === 'desc' ? 'High→Low' : 'Low→High'}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (inventorySortBy === 'oem') {
+                    setInventorySortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+                  } else {
+                    setInventorySortBy('oem');
+                    setInventorySortOrder('asc');
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+                  inventorySortBy === 'oem'
+                    ? 'bg-amber-400 text-slate-950 shadow-md font-bold'
+                    : 'text-white/70 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Building2 className="h-3.5 w-3.5" />
+                <span>OEM</span>
+                {inventorySortBy === 'oem' && (
+                  <span className="text-[10px] font-mono px-1 py-0.2 bg-black/20 rounded">
+                    {inventorySortOrder === 'asc' ? 'A→Z' : 'Z→A'}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setInventorySortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+              title={`Sort direction: currently ${inventorySortOrder === 'asc' ? 'Ascending' : 'Descending'}`}
+              className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 hover:text-white px-2.5 py-1.5 rounded-xl text-xs font-mono transition"
+            >
+              <ArrowUpDown className="h-3.5 w-3.5 text-amber-400" />
+              <span className="hidden sm:inline">{inventorySortOrder === 'asc' ? 'Ascending' : 'Descending'}</span>
+            </button>
           </div>
         </div>
 
         {/* 5 Core Inventory Metrics */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <div className="bg-white/5 border border-white/10 rounded-xl p-3">
-            <span className="text-[10px] font-mono text-white/50 uppercase">Panel Types</span>
-            <p className="text-lg font-bold text-white mt-0.5">{solarInventoryMetrics.totalTypes} Models</p>
+            <span className="text-[10px] font-mono text-white/50 uppercase">Inventory SKUs</span>
+            <p className="text-lg font-bold text-white mt-0.5">{inventoryMetrics.totalItems} Models</p>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-3">
-            <span className="text-[10px] font-mono text-white/50 uppercase">Total Panels</span>
-            <p className="text-lg font-bold text-amber-300 mt-0.5">{solarInventoryMetrics.totalPhysicalPanels.toLocaleString()} Units</p>
+            <span className="text-[10px] font-mono text-white/50 uppercase">Total Units</span>
+            <p className="text-lg font-bold text-amber-300 mt-0.5">{inventoryMetrics.totalUnits.toLocaleString()} Units</p>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-3">
-            <span className="text-[10px] font-mono text-white/50 uppercase">Inventory Value</span>
-            <p className="text-base font-extrabold text-emerald-400 font-mono mt-0.5">{formatCurrency(solarInventoryMetrics.totalInventoryValue)}</p>
+            <span className="text-[10px] font-mono text-white/50 uppercase">Capitalization Value</span>
+            <p className="text-base font-extrabold text-emerald-400 font-mono mt-0.5">{formatCurrency(inventoryMetrics.totalValuation)}</p>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-3">
             <span className="text-[10px] font-mono text-white/50 uppercase">Low Stock Alerts</span>
-            <p className="text-lg font-bold text-amber-400 mt-0.5">{solarInventoryMetrics.lowStockCount} Products</p>
+            <p className="text-lg font-bold text-amber-400 mt-0.5">{inventoryMetrics.lowStockCount} Products</p>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-3 col-span-2 sm:col-span-1">
             <span className="text-[10px] font-mono text-white/50 uppercase">Out of Stock</span>
-            <p className="text-lg font-bold text-rose-400 mt-0.5">{solarInventoryMetrics.outOfStockCount} Products</p>
+            <p className="text-lg font-bold text-rose-400 mt-0.5">{inventoryMetrics.outOfStockCount} Products</p>
           </div>
         </div>
 
-        {/* Capacity Breakdown Pills */}
-        <div className="pt-2">
-          <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider block mb-2">
-            Capacity Summary Breakdown:
-          </span>
+        {/* Dynamic Aggregated Breakdown Cards based on Sort Focus */}
+        <div className="bg-white/[0.03] border border-white/5 rounded-xl p-3.5 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider flex items-center gap-1.5">
+              {inventorySortBy === 'oem' && <><Building2 className="h-3 w-3 text-amber-400" /> Aggregation by OEM (Original Equipment Manufacturer)</>}
+              {inventorySortBy === 'specification' && <><Cpu className="h-3 w-3 text-emerald-400" /> Aggregation by Technical Specification Rating</>}
+              {inventorySortBy === 'items' && <><Package className="h-3 w-3 text-indigo-400" /> Aggregation by Item Category Family</>}
+            </span>
+            <span className="text-[10px] font-mono text-white/40">
+              {inventorySortBy === 'oem' ? `${oemStatistics.length} OEMs Active` : inventorySortBy === 'specification' ? `${specificationStatistics.length} Spec Tiers` : `${itemCategoryStatistics.length} Categories`}
+            </span>
+          </div>
+
           <div className="flex flex-wrap gap-2">
-            {solarInventoryMetrics.capacityEntries.map(([label, count]) => (
-              <div 
-                key={label}
-                className={`px-3 py-1.5 rounded-xl border text-xs font-mono flex items-center gap-1.5 ${
-                  count > 0 ? 'bg-amber-500/10 border-amber-500/20 text-white' : 'bg-white/5 border-white/5 text-white/30'
+            {inventorySortBy === 'oem' &&
+              oemStatistics.map((oemStat) => (
+                <div
+                  key={oemStat.oem}
+                  className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs transition flex flex-col gap-0.5 min-w-[140px]"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-white tracking-tight">{oemStat.oem}</span>
+                    <span className="text-[10px] font-mono text-amber-400 font-semibold">{oemStat.totalUnits} pcs</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-white/40 font-mono">
+                    <span>{oemStat.itemCount} model{oemStat.itemCount > 1 ? 's' : ''}</span>
+                    <span className="text-emerald-400">{formatCurrency(oemStat.totalValuation)}</span>
+                  </div>
+                </div>
+              ))}
+
+            {inventorySortBy === 'specification' &&
+              specificationStatistics.map((specStat) => (
+                <div
+                  key={specStat.spec}
+                  className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs transition flex flex-col gap-0.5 min-w-[130px]"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-emerald-300 font-mono">{specStat.spec}</span>
+                    <span className="text-[10px] font-mono text-white font-semibold">{specStat.totalUnits} units</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-white/40 font-mono">
+                    <span>{specStat.itemCount} SKU{specStat.itemCount > 1 ? 's' : ''}</span>
+                    <span className="text-emerald-400">{formatCurrency(specStat.totalValuation)}</span>
+                  </div>
+                </div>
+              ))}
+
+            {inventorySortBy === 'items' &&
+              itemCategoryStatistics.map((catStat) => (
+                <div
+                  key={catStat.category}
+                  className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs transition flex flex-col gap-0.5 min-w-[130px]"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-indigo-300">{catStat.category}</span>
+                    <span className="text-[10px] font-mono text-amber-400 font-semibold">{catStat.totalUnits} pcs</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-white/40 font-mono">
+                    <span>{catStat.itemCount} item{catStat.itemCount > 1 ? 's' : ''}</span>
+                    <span className="text-emerald-400">{formatCurrency(catStat.totalValuation)}</span>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+
+        {/* Quick Search & Category Filter Toolbar */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+          <div className="relative w-full sm:w-72">
+            <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+            <input
+              type="text"
+              placeholder="Search items, specs, OEMs..."
+              value={inventorySearch}
+              onChange={(e) => setInventorySearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder-white/40 focus:outline-none focus:border-amber-500/50"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+            {availableCategories.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setInventoryCategoryFilter(cat)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-mono transition whitespace-nowrap ${
+                  inventoryCategoryFilter === cat
+                    ? 'bg-white/20 text-white font-bold border border-white/30'
+                    : 'text-white/50 hover:text-white bg-white/5 border border-white/5'
                 }`}
               >
-                <span className="font-bold text-amber-400">{label}:</span>
-                <span className="font-semibold">{count} panels</span>
-              </div>
+                {cat}
+              </button>
             ))}
           </div>
+        </div>
+
+        {/* Itemized Sorted Inventory Ledger Table */}
+        <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/20">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="border-b border-white/10 bg-white/5 text-white/60 font-mono uppercase text-[10px]">
+                <th
+                  onClick={() => {
+                    if (inventorySortBy === 'items') {
+                      setInventorySortOrder((p) => (p === 'asc' ? 'desc' : 'asc'));
+                    } else {
+                      setInventorySortBy('items');
+                      setInventorySortOrder('asc');
+                    }
+                  }}
+                  className="p-3 cursor-pointer hover:text-amber-400 transition"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Item & Model</span>
+                    {inventorySortBy === 'items' && <ArrowUpDown className="h-3 w-3 text-amber-400" />}
+                  </div>
+                </th>
+                <th
+                  onClick={() => {
+                    if (inventorySortBy === 'specification') {
+                      setInventorySortOrder((p) => (p === 'asc' ? 'desc' : 'asc'));
+                    } else {
+                      setInventorySortBy('specification');
+                      setInventorySortOrder('desc');
+                    }
+                  }}
+                  className="p-3 cursor-pointer hover:text-amber-400 transition"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Specification</span>
+                    {inventorySortBy === 'specification' && <ArrowUpDown className="h-3 w-3 text-amber-400" />}
+                  </div>
+                </th>
+                <th
+                  onClick={() => {
+                    if (inventorySortBy === 'oem') {
+                      setInventorySortOrder((p) => (p === 'asc' ? 'desc' : 'asc'));
+                    } else {
+                      setInventorySortBy('oem');
+                      setInventorySortOrder('asc');
+                    }
+                  }}
+                  className="p-3 cursor-pointer hover:text-amber-400 transition"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>OEM</span>
+                    {inventorySortBy === 'oem' && <ArrowUpDown className="h-3 w-3 text-amber-400" />}
+                  </div>
+                </th>
+                <th className="p-3 text-right">Unit Price</th>
+                <th className="p-3 text-center">Stock Count</th>
+                <th className="p-3 text-right">Total Valuation</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {filteredAndSortedItems.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-white/40 font-mono text-xs">
+                    No inventory records match the current filter or search criteria.
+                  </td>
+                </tr>
+              ) : (
+                filteredAndSortedItems.map((item) => (
+                  <tr key={item.id} className="hover:bg-white/[0.04] transition">
+                    <td className="p-3">
+                      <div className="font-semibold text-white tracking-tight">{item.name}</div>
+                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-white/40 font-mono">
+                        <span>Model: {item.modelNumber}</span>
+                        <span>•</span>
+                        <span className="text-indigo-300">{item.category}</span>
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      <div className="font-mono font-medium text-emerald-300">{item.specification}</div>
+                      {item.specSecondary && (
+                        <div className="text-[10px] text-white/40 mt-0.5">{item.specSecondary}</div>
+                      )}
+                    </td>
+                    <td className="p-3">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-white/10 text-amber-300 border border-white/10">
+                        <Building2 className="h-3 w-3" />
+                        {item.oem}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right font-mono text-white/70">
+                      {formatCurrency(item.unitPrice)}
+                    </td>
+                    <td className="p-3 text-center">
+                      <div className="inline-flex flex-col items-center">
+                        <span className="font-bold text-white font-mono">{item.quantity} pcs</span>
+                        <span
+                          className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-semibold uppercase mt-0.5 ${
+                            item.status === 'In Stock'
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                              : item.status === 'Low Stock'
+                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          }`}
+                        >
+                          {item.status}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-3 text-right font-mono font-bold text-emerald-400">
+                      {formatCurrency(item.totalValue)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
