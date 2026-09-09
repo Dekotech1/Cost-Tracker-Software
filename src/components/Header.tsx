@@ -1,6 +1,6 @@
 import React from 'react';
 import { User, UserRole } from '../types';
-import { Sun, ShieldAlert, FileText, Landmark, Users2, LayoutDashboard, History, PiggyBank, HelpCircle, Warehouse } from 'lucide-react';
+import { Sun, ShieldAlert, FileText, Landmark, Users2, LayoutDashboard, History, PiggyBank, HelpCircle, Warehouse, Truck } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: string;
@@ -21,6 +21,7 @@ export default function Header({
 }: HeaderProps) {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'logistics', label: 'Nationwide Logistics (STT)', icon: Truck },
     { id: 'solar-panels', label: 'Solar Panels CMS', icon: Sun },
     { id: 'programmes', label: 'Programmes', icon: Landmark },
     { id: 'communities', label: 'Communities', icon: Users2 },

@@ -40,6 +40,28 @@ import Expenses from './components/Expenses';
 import Reports from './components/Reports';
 import AuditTrail from './components/AuditTrail';
 import Onboarding from './components/Onboarding';
+import NationwideLogistics from './components/logistics/NationwideLogistics';
+import {
+  StoreWarehouse,
+  RenewableProduct,
+  InterStoreTransfer,
+  DynamicStockBalance,
+  SerializedAsset,
+  TransferPolicy,
+  SupplierContact,
+  StockTransaction,
+  TransferStatus,
+} from './types/logistics';
+import {
+  INITIAL_STORES,
+  INITIAL_PRODUCTS,
+  INITIAL_TRANSFERS,
+  INITIAL_STOCK_BALANCES,
+  INITIAL_SERIALIZED_ASSETS,
+  INITIAL_POLICIES,
+  INITIAL_SUPPLIERS,
+  INITIAL_STOCK_TRANSACTIONS,
+} from './data/initialLogisticsData';
 
 export default function App() {
   // Ensure storage is initialized with mock values
@@ -87,6 +109,34 @@ export default function App() {
 
   const [stockLogs, setStockLogs] = useState<StockMovementLog[]>(() => {
     return getStoredData<StockMovementLog[]>('stock_logs', INITIAL_STOCK_LOGS);
+  });
+
+  // Nationwide Logistics Master Data & Operational State
+  const [logisticsStores, setLogisticsStores] = useState<StoreWarehouse[]>(() => {
+    return getStoredData<StoreWarehouse[]>('logistics_stores', INITIAL_STORES);
+  });
+
+  const [logisticsProducts, setLogisticsProducts] = useState<RenewableProduct[]>(() => {
+    return getStoredData<RenewableProduct[]>('logistics_products', INITIAL_PRODUCTS);
+  });
+
+  const [logisticsTransfers, setLogisticsTransfers] = useState<InterStoreTransfer[]>(() => {
+    return getStoredData<InterStoreTransfer[]>('logistics_transfers', INITIAL_TRANSFERS);
+  });
+
+  const [stockBalances, setStockBalances] = useState<DynamicStockBalance[]>(() => {
+    return getStoredData<DynamicStockBalance[]>('stock_balances', INITIAL_STOCK_BALANCES);
+  });
+
+  const [serializedAssets, setSerializedAssets] = useState<SerializedAsset[]>(() => {
+    return getStoredData<SerializedAsset[]>('serialized_assets', INITIAL_SERIALIZED_ASSETS);
+  });
+
+  const [logisticsPolicies] = useState<TransferPolicy[]>(INITIAL_POLICIES);
+  const [logisticsSuppliers] = useState<SupplierContact[]>(INITIAL_SUPPLIERS);
+
+  const [stockTransactions, setStockTransactions] = useState<StockTransaction[]>(() => {
+    return getStoredData<StockTransaction[]>('stock_transactions', INITIAL_STOCK_TRANSACTIONS);
   });
 
   const [currentUser, setCurrentUser] = useState<User>(() => {
@@ -155,6 +205,30 @@ export default function App() {
   useEffect(() => {
     setStoredData('onboarding_completed', onboardingCompleted);
   }, [onboardingCompleted]);
+
+  useEffect(() => {
+    setStoredData('logistics_stores', logisticsStores);
+  }, [logisticsStores]);
+
+  useEffect(() => {
+    setStoredData('logistics_products', logisticsProducts);
+  }, [logisticsProducts]);
+
+  useEffect(() => {
+    setStoredData('logistics_transfers', logisticsTransfers);
+  }, [logisticsTransfers]);
+
+  useEffect(() => {
+    setStoredData('stock_balances', stockBalances);
+  }, [stockBalances]);
+
+  useEffect(() => {
+    setStoredData('serialized_assets', serializedAssets);
+  }, [serializedAssets]);
+
+  useEffect(() => {
+    setStoredData('stock_transactions', stockTransactions);
+  }, [stockTransactions]);
 
   // 1. Audit Log Helper
   const handleAddAuditLog = (action: string, details: string) => {
@@ -625,6 +699,187 @@ export default function App() {
     );
   };
 
+  // Nationwide Logistics Operational Transaction Handlers
+  const handleCreateTransfer = (
+    transferData: Omit<InterStoreTransfer, 'id' | 'createdAt' | 'updatedAt'>
+  ) => {
+    const nextSeq = logisticsTransfers.length + 1;
+    const year = new Date().getFullYear();
+    const newId = `STT-${year}-${String(nextSeq).padStart(4, '0')}`;
+    const now = new Date().toISOString();
+
+    const created: InterStoreTransfer = {
+      ...transferData,
+      id: newId,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    setLogisticsTransfers((prev) => [created, ...prev]);
+
+    handleAddAuditLog(
+      'Created Inter-Store Transfer (STT)',
+      `Initiated transfer ${newId} from ${transferData.originStoreName} to ${transferData.destinationStoreName} (${transferData.totalQuantity} units, ₦${transferData.totalValuation.toLocaleString()})`
+    );
+  };
+
+  const handleUpdateTransferStatus = (
+    transferId: string,
+    newStatus: TransferStatus,
+    metadata?: {
+      waybillNumber?: string;
+      driverName?: string;
+      driverPhone?: string;
+      vehicleRegistration?: string;
+      approvalNotes?: string;
+      receivedNotes?: string;
+      varianceNotes?: string;
+    }
+  ) => {
+    const target = logisticsTransfers.find((t) => t.id === transferId);
+    if (!target) return;
+
+    const now = new Date().toISOString();
+
+    setLogisticsTransfers((prev) =>
+      prev.map((t) => {
+        if (t.id !== transferId) return t;
+        return {
+          ...t,
+          status: newStatus,
+          updatedAt: now,
+          waybillNumber: metadata?.waybillNumber || t.waybillNumber,
+          driverName: metadata?.driverName || t.driverName,
+          driverPhone: metadata?.driverPhone || t.driverPhone,
+          vehicleRegistration: metadata?.vehicleRegistration || t.vehicleRegistration,
+          approvalNotes: metadata?.approvalNotes || t.approvalNotes,
+          receivedNotes: metadata?.receivedNotes || t.receivedNotes,
+          varianceNotes: metadata?.varianceNotes || t.varianceNotes,
+          approvedBy: newStatus === 'Approved' ? currentUser.name : t.approvedBy,
+          receivedBy: newStatus === 'Received' ? currentUser.name : t.receivedBy,
+          dispatchDate: newStatus === 'In Transit' ? now : t.dispatchDate,
+          actualArrivalDate: newStatus === 'Received' ? now : t.actualArrivalDate,
+        };
+      })
+    );
+
+    // Dynamic Ledger adjustments based on lifecycle event:
+    if (newStatus === 'In Transit') {
+      // Deduct/Mark outward transit from origin store
+      setStockBalances((prev) => {
+        return prev.map((bal) => {
+          if (bal.storeId !== target.originStoreId) return bal;
+          const matchedItem = target.items.find((i) => i.productId === bal.productId);
+          if (!matchedItem) return bal;
+
+          const newOutward = bal.outwardTransfers + matchedItem.quantityRequested;
+          const currentStock =
+            bal.initialCmsStock + bal.inwardTransfers + bal.purchases - newOutward - bal.siteDispatch;
+          const unitCost = matchedItem.unitCost;
+          return {
+            ...bal,
+            outwardTransfers: newOutward,
+            currentStock,
+            totalValuation: currentStock * unitCost,
+            reorderRequired: currentStock <= bal.minThreshold,
+          };
+        });
+      });
+
+      // Update Serialized Assets to "In Transit"
+      setSerializedAssets((prev) => {
+        const allSerialsInTransfer = target.items.flatMap((i) => i.serialNumbers);
+        return prev.map((asset) => {
+          if (!allSerialsInTransfer.includes(asset.serialNumber)) return asset;
+          return {
+            ...asset,
+            status: 'In Transit',
+            currentTransferId: target.id,
+            history: [
+              {
+                timestamp: now,
+                action: 'Dispatched via Highway Transit',
+                location: `En Route to ${target.destinationStoreName}`,
+                details: `Waybill #${metadata?.waybillNumber || target.waybillNumber || 'Pending'} - Carrier: ${target.logisticsVendor}`,
+                performer: currentUser.name,
+              },
+              ...asset.history,
+            ],
+          };
+        });
+      });
+
+      handleAddAuditLog(
+        'Dispatched Inter-Store Transfer',
+        `Dispatched STT ${target.id} from ${target.originStoreName}. Carrier: ${target.logisticsVendor}, Waybill: ${metadata?.waybillNumber || target.waybillNumber}`
+      );
+    } else if (newStatus === 'Received') {
+      // Credit inward stock to destination store
+      setStockBalances((prev) => {
+        return prev.map((bal) => {
+          if (bal.storeId !== target.destinationStoreId) return bal;
+          const matchedItem = target.items.find((i) => i.productId === bal.productId);
+          if (!matchedItem) return bal;
+
+          const newInward = bal.inwardTransfers + matchedItem.quantityRequested;
+          const currentStock =
+            bal.initialCmsStock + newInward + bal.purchases - bal.outwardTransfers - bal.siteDispatch;
+          const unitCost = matchedItem.unitCost;
+          return {
+            ...bal,
+            inwardTransfers: newInward,
+            currentStock,
+            totalValuation: currentStock * unitCost,
+            reorderRequired: currentStock <= bal.minThreshold,
+          };
+        });
+      });
+
+      // Update Serialized Assets to "In Warehouse" at destination store
+      setSerializedAssets((prev) => {
+        const allSerialsInTransfer = target.items.flatMap((i) => i.serialNumbers);
+        return prev.map((asset) => {
+          if (!allSerialsInTransfer.includes(asset.serialNumber)) return asset;
+          return {
+            ...asset,
+            status: 'In Warehouse',
+            currentStoreId: target.destinationStoreId,
+            currentStoreName: target.destinationStoreName,
+            currentTransferId: undefined,
+            history: [
+              {
+                timestamp: now,
+                action: 'Received at Destination Warehouse',
+                location: target.destinationStoreName,
+                details: `Verified and booked into store inventory from STT ${target.id}`,
+                performer: currentUser.name,
+              },
+              ...asset.history,
+            ],
+          };
+        });
+      });
+
+      handleAddAuditLog(
+        'Received Inter-Store Transfer',
+        `Received STT ${target.id} at ${target.destinationStoreName}. Verified by ${currentUser.name}`
+      );
+    } else {
+      handleAddAuditLog(
+        `STT Status Update: ${newStatus}`,
+        `Advanced STT ${target.id} to ${newStatus}`
+      );
+    }
+  };
+
+  const handleAddSerializedAsset = (asset: SerializedAsset) => {
+    setSerializedAssets((prev) => [asset, ...prev]);
+    handleAddAuditLog(
+      'Registered Serialized Asset',
+      `Registered serial unit ${asset.serialNumber} (${asset.productName}) at ${asset.currentStoreName}`
+    );
+  };
+
   // Render proper view based on active tab
   const renderActiveView = () => {
     switch (activeTab) {
@@ -638,6 +893,24 @@ export default function App() {
             categories={categories}
             solarProducts={solarProducts}
             solarCapacities={solarCapacities}
+          />
+        );
+      case 'logistics':
+        return (
+          <NationwideLogistics
+            stores={logisticsStores}
+            products={logisticsProducts}
+            transfers={logisticsTransfers}
+            stockBalances={stockBalances}
+            serializedAssets={serializedAssets}
+            policies={logisticsPolicies}
+            suppliers={logisticsSuppliers}
+            transactions={stockTransactions}
+            currentUserRole={currentUser.role}
+            currentUserName={currentUser.name}
+            onCreateTransfer={handleCreateTransfer}
+            onUpdateTransferStatus={handleUpdateTransferStatus}
+            onAddSerializedAsset={handleAddSerializedAsset}
           />
         );
       case 'solar-panels':

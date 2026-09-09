@@ -1,6 +1,6 @@
 {
   "name": "EaseMe",
-  "description": "Internal Solar Project Cost Recording & Reporting System for managing renewable solar electrification programmes, communities, projects, and expenses.",
+  "description": "Nationwide Procurement, Store Inventory, and Inter-Store Logistics Web Application for Renewable Energy Infrastructure with Headless CMS master data integration.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
