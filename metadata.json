@@ -1,6 +1,6 @@
 {
   "name": "Ease My Work",
-  "description": "Nationwide Procurement, Store Inventory, and Inter-Store Logistics Web Application for Renewable Energy Infrastructure with Headless CMS master data integration.",
+  "description": "Enterprise Resource Planning (ERP) platform for renewable-energy infrastructure, multi-store inventory, nationwide logistics, procurement, asset tracking, and 3-way invoice matching.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

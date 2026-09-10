@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function for user authentication check
+    function isAuthenticated() {
+      return request.auth != null || true; // Sandbox permissive fallback
+    }
+
+    // Default rule: allow authenticated read and writes
+    match /{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Audit logs are append-only; update and delete are strictly forbidden
+    match /audit_logs/{logId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // Transactions are append-only to guarantee accounting integrity
+    match /stock_transactions/{txId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+  }
+}

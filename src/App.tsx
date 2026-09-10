@@ -1,1082 +1,159 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Program,
-  Community,
-  SolarProject,
-  Expense,
-  ExpenseCategory,
-  AuditLog,
-  User,
-  UserRole,
-  StoreItem,
-  SolarPanelCapacity,
-  SolarPanelProduct,
-  StockMovementLog,
-} from './types';
-import {
-  INITIAL_PROGRAMS,
-  INITIAL_COMMUNITIES,
-  INITIAL_PROJECTS,
-  INITIAL_EXPENSES,
-  INITIAL_AUDIT_LOGS,
-  INITIAL_STORE_ITEMS,
-  USERS,
-  DEFAULT_CATEGORIES,
-  DEFAULT_SOLAR_CAPACITIES,
-  INITIAL_SOLAR_PRODUCTS,
-  INITIAL_STOCK_LOGS,
-  getStoredData,
-  setStoredData,
-  initializeStorageIfNeeded,
-} from './data/mockData';
-import Header from './components/Header';
-import Dashboard from './components/Dashboard';
-import SolarPanelCMS from './components/SolarPanelCMS';
-import Programmes from './components/Programmes';
-import Communities from './components/Communities';
-import Projects from './components/Projects';
-import Store from './components/Store';
-import Expenses from './components/Expenses';
-import Reports from './components/Reports';
-import AuditTrail from './components/AuditTrail';
-import Onboarding from './components/Onboarding';
-import NationwideLogistics from './components/logistics/NationwideLogistics';
-import {
-  StoreWarehouse,
-  RenewableProduct,
-  InterStoreTransfer,
-  DynamicStockBalance,
-  SerializedAsset,
-  TransferPolicy,
-  SupplierContact,
-  StockTransaction,
-  TransferStatus,
-} from './types/logistics';
-import {
-  INITIAL_STORES,
-  INITIAL_PRODUCTS,
-  INITIAL_TRANSFERS,
-  INITIAL_STOCK_BALANCES,
-  INITIAL_SERIALIZED_ASSETS,
-  INITIAL_POLICIES,
-  INITIAL_SUPPLIERS,
-  INITIAL_STOCK_TRANSACTIONS,
-} from './data/initialLogisticsData';
+import React, { useState } from 'react';
+import ErpLayout from './components/erp/ErpLayout';
+import ErpDashboard from './components/erp/ErpDashboard';
+import ErpProgrammes from './components/erp/ErpProgrammes';
+import ErpCommunities from './components/erp/ErpCommunities';
+import ErpProcurement from './components/erp/ErpProcurement';
+import ErpInventory from './components/erp/ErpInventory';
+import ErpTransfers from './components/erp/ErpTransfers';
+import ErpWaybills from './components/erp/ErpWaybills';
+import ErpGoodsReceiving from './components/erp/ErpGoodsReceiving';
+import ErpAssets from './components/erp/ErpAssets';
+import ErpFinance from './components/erp/ErpFinance';
+import ErpReports from './components/erp/ErpReports';
+import ErpAuditLogs from './components/erp/ErpAuditLogs';
+import ErpAdmin from './components/erp/ErpAdmin';
+import CreateModals from './components/erp/CreateModals';
+import { erpService } from './services/erpStorageService';
+import { EnterpriseUser, PurchaseRequisition } from './types/erp';
 
 export default function App() {
-  // Ensure storage is initialized with mock values
-  useEffect(() => {
-    initializeStorageIfNeeded();
-  }, []);
-
-  // Initialize state directly from local storage with fallbacks
-  const [programs, setPrograms] = useState<Program[]>(() => {
-    initializeStorageIfNeeded();
-    return getStoredData<Program[]>('programs', INITIAL_PROGRAMS);
-  });
-
-  const [communities, setCommunities] = useState<Community[]>(() => {
-    return getStoredData<Community[]>('communities', INITIAL_COMMUNITIES);
-  });
-
-  const [projects, setProjects] = useState<SolarProject[]>(() => {
-    return getStoredData<SolarProject[]>('projects', INITIAL_PROJECTS);
-  });
-
-  const [categories, setCategories] = useState<ExpenseCategory[]>(() => {
-    return getStoredData<ExpenseCategory[]>('categories', DEFAULT_CATEGORIES);
-  });
-
-  const [expenses, setExpenses] = useState<Expense[]>(() => {
-    return getStoredData<Expense[]>('expenses', INITIAL_EXPENSES);
-  });
-
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
-    return getStoredData<AuditLog[]>('audit_logs', INITIAL_AUDIT_LOGS);
-  });
-
-  const [storeItems, setStoreItems] = useState<StoreItem[]>(() => {
-    return getStoredData<StoreItem[]>('store_items', INITIAL_STORE_ITEMS);
-  });
-
-  const [solarCapacities, setSolarCapacities] = useState<SolarPanelCapacity[]>(() => {
-    return getStoredData<SolarPanelCapacity[]>('solar_capacities', DEFAULT_SOLAR_CAPACITIES);
-  });
-
-  const [solarProducts, setSolarProducts] = useState<SolarPanelProduct[]>(() => {
-    return getStoredData<SolarPanelProduct[]>('solar_products', INITIAL_SOLAR_PRODUCTS);
-  });
-
-  const [stockLogs, setStockLogs] = useState<StockMovementLog[]>(() => {
-    return getStoredData<StockMovementLog[]>('stock_logs', INITIAL_STOCK_LOGS);
-  });
-
-  // Nationwide Logistics Master Data & Operational State
-  const [logisticsStores, setLogisticsStores] = useState<StoreWarehouse[]>(() => {
-    return getStoredData<StoreWarehouse[]>('logistics_stores', INITIAL_STORES);
-  });
-
-  const [logisticsProducts, setLogisticsProducts] = useState<RenewableProduct[]>(() => {
-    return getStoredData<RenewableProduct[]>('logistics_products', INITIAL_PRODUCTS);
-  });
-
-  const [logisticsTransfers, setLogisticsTransfers] = useState<InterStoreTransfer[]>(() => {
-    return getStoredData<InterStoreTransfer[]>('logistics_transfers', INITIAL_TRANSFERS);
-  });
-
-  const [stockBalances, setStockBalances] = useState<DynamicStockBalance[]>(() => {
-    return getStoredData<DynamicStockBalance[]>('stock_balances', INITIAL_STOCK_BALANCES);
-  });
-
-  const [serializedAssets, setSerializedAssets] = useState<SerializedAsset[]>(() => {
-    return getStoredData<SerializedAsset[]>('serialized_assets', INITIAL_SERIALIZED_ASSETS);
-  });
-
-  const [logisticsPolicies] = useState<TransferPolicy[]>(INITIAL_POLICIES);
-  const [logisticsSuppliers] = useState<SupplierContact[]>(INITIAL_SUPPLIERS);
-
-  const [stockTransactions, setStockTransactions] = useState<StockTransaction[]>(() => {
-    return getStoredData<StockTransaction[]>('stock_transactions', INITIAL_STOCK_TRANSACTIONS);
-  });
-
-  const [currentUser, setCurrentUser] = useState<User>(() => {
-    return getStoredData<User>('current_user', USERS[0]); // Default to Administrator
-  });
-
-  const [usersList, setUsersList] = useState<User[]>(() => {
-    return getStoredData<User[]>('users_list', USERS);
-  });
-
-  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(() => {
-    return getStoredData<boolean>('onboarding_completed', false);
-  });
-
+  const users = erpService.getUsers();
+  const [currentUser, setCurrentUser] = useState<EnterpriseUser>(() => users[0]);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [transferDataFromPR, setTransferDataFromPR] = useState<PurchaseRequisition | null>(null);
+  const [selectedWaybillNumber, setSelectedWaybillNumber] = useState<string | undefined>(undefined);
 
-  // Keep Local Storage in sync when state updates
-  useEffect(() => {
-    setStoredData('programs', programs);
-  }, [programs]);
-
-  useEffect(() => {
-    setStoredData('communities', communities);
-  }, [communities]);
-
-  useEffect(() => {
-    setStoredData('projects', projects);
-  }, [projects]);
-
-  useEffect(() => {
-    setStoredData('categories', categories);
-  }, [categories]);
-
-  useEffect(() => {
-    setStoredData('expenses', expenses);
-  }, [expenses]);
-
-  useEffect(() => {
-    setStoredData('audit_logs', auditLogs);
-  }, [auditLogs]);
-
-  useEffect(() => {
-    setStoredData('store_items', storeItems);
-  }, [storeItems]);
-
-  useEffect(() => {
-    setStoredData('solar_capacities', solarCapacities);
-  }, [solarCapacities]);
-
-  useEffect(() => {
-    setStoredData('solar_products', solarProducts);
-  }, [solarProducts]);
-
-  useEffect(() => {
-    setStoredData('stock_logs', stockLogs);
-  }, [stockLogs]);
-
-  useEffect(() => {
-    setStoredData('current_user', currentUser);
-  }, [currentUser]);
-
-  useEffect(() => {
-    setStoredData('users_list', usersList);
-  }, [usersList]);
-
-  useEffect(() => {
-    setStoredData('onboarding_completed', onboardingCompleted);
-  }, [onboardingCompleted]);
-
-  useEffect(() => {
-    setStoredData('logistics_stores', logisticsStores);
-  }, [logisticsStores]);
-
-  useEffect(() => {
-    setStoredData('logistics_products', logisticsProducts);
-  }, [logisticsProducts]);
-
-  useEffect(() => {
-    setStoredData('logistics_transfers', logisticsTransfers);
-  }, [logisticsTransfers]);
-
-  useEffect(() => {
-    setStoredData('stock_balances', stockBalances);
-  }, [stockBalances]);
-
-  useEffect(() => {
-    setStoredData('serialized_assets', serializedAssets);
-  }, [serializedAssets]);
-
-  useEffect(() => {
-    setStoredData('stock_transactions', stockTransactions);
-  }, [stockTransactions]);
-
-  // 1. Audit Log Helper
-  const handleAddAuditLog = (action: string, details: string) => {
-    const newLog: AuditLog = {
-      id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      action,
-      userId: currentUser.email,
-      userName: currentUser.name,
-      userRole: currentUser.role,
-      timestamp: new Date().toISOString(),
-      details,
-    };
-    setAuditLogs((prev) => [newLog, ...prev]);
+  const handleOpenCreateModal = (type: string) => {
+    setActiveModal(type);
   };
 
-  const handleClearAuditLogs = () => {
-    const defaultLog: AuditLog = {
-      id: 'audit-reset',
-      action: 'Cleared Trail',
-      userId: currentUser.email,
-      userName: currentUser.name,
-      userRole: currentUser.role,
-      timestamp: new Date().toISOString(),
-      details: 'Administrator cleared system audit logs history cache.',
-    };
-    setAuditLogs([defaultLog]);
+  const handleCloseModal = () => {
+    setActiveModal(null);
+    setTransferDataFromPR(null);
   };
 
-  // 2. Program Handlers
-  const handleAddProgram = (newProg: Omit<Program, 'id'>) => {
-    const program: Program = {
-      ...newProg,
-      id: `prog-${Date.now()}`,
-    };
-    setPrograms((prev) => [...prev, program]);
+  const handleConvertToTransfer = (pr: PurchaseRequisition) => {
+    setTransferDataFromPR(pr);
+    setActiveModal('transfer');
   };
 
-  const handleUpdateProgram = (updatedProg: Program) => {
-    setPrograms((prev) => prev.map((p) => (p.id === updatedProg.id ? updatedProg : p)));
+  const handleViewWaybill = (wbNum: string) => {
+    setSelectedWaybillNumber(wbNum);
+    setActiveTab('waybills');
   };
 
-  const handleArchiveProgram = (programId: string) => {
-    setPrograms((prev) =>
-      prev.map((p) => (p.id === programId ? { ...p, status: 'Archived' } : p))
-    );
-  };
-
-  const handleUnarchiveProgram = (programId: string) => {
-    setPrograms((prev) =>
-      prev.map((p) => (p.id === programId ? { ...p, status: 'Active' } : p))
-    );
-  };
-
-  // 3. Community Handlers
-  const handleAddCommunity = (newComm: Omit<Community, 'id'>) => {
-    const community: Community = {
-      ...newComm,
-      id: `comm-${Date.now()}`,
-    };
-    setCommunities((prev) => [...prev, community]);
-  };
-
-  const handleUpdateCommunity = (updatedComm: Community) => {
-    setCommunities((prev) => prev.map((c) => (c.id === updatedComm.id ? updatedComm : c)));
-  };
-
-  const handleDeleteCommunity = (communityId: string) => {
-    setCommunities((prev) => prev.filter((c) => c.id !== communityId));
-  };
-
-  // 4. Solar Project Handlers
-  const handleAddProject = (newProj: Omit<SolarProject, 'id'>) => {
-    const project: SolarProject = {
-      ...newProj,
-      id: `proj-${Date.now()}`,
-    };
-    setProjects((prev) => [...prev, project]);
-  };
-
-  const handleUpdateProject = (updatedProj: SolarProject) => {
-    setProjects((prev) => prev.map((p) => (p.id === updatedProj.id ? updatedProj : p)));
-  };
-
-  // 5. Expense Handlers
-  const handleAddExpense = (newExp: Omit<Expense, 'id' | 'createdAt' | 'status' | 'totalCost'>) => {
-    // Automatically approve if submitted by Administrator, Project Manager, or Finance Officer, otherwise Pending
-    const shouldAutoApprove = currentUser.role === 'Administrator' || currentUser.role === 'Project Manager' || currentUser.role === 'Finance Officer';
-
-    const expense: Expense = {
-      ...newExp,
-      id: `exp-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      totalCost: newExp.quantity * newExp.unitCost,
-      status: shouldAutoApprove ? 'Approved' : 'Pending Approval',
-      approvedBy: shouldAutoApprove ? currentUser.name : undefined,
-    };
-    setExpenses((prev) => [expense, ...prev]);
-  };
-
-  const handleUpdateExpense = (updatedExp: Expense) => {
-    setExpenses((prev) => prev.map((e) => (e.id === updatedExp.id ? updatedExp : e)));
-  };
-
-  const handleApproveExpense = (expenseId: string, approvedBy: string) => {
-    setExpenses((prev) =>
-      prev.map((e) =>
-        e.id === expenseId ? { ...e, status: 'Approved', approvedBy } : e
-      )
-    );
-  };
-
-  const handleRejectExpense = (expenseId: string) => {
-    setExpenses((prev) =>
-      prev.map((e) => (e.id === expenseId ? { ...e, status: 'Rejected' } : e))
-    );
-  };
-
-  // 6. Custom Category Handler
-  const handleAddCustomCategory = (name: string) => {
-    const exists = categories.some((c) => c.name.toLowerCase() === name.toLowerCase());
-    if (exists) {
-      alert('This category already exists.');
-      return;
-    }
-    const newCat: ExpenseCategory = {
-      id: `cat-${Date.now()}`,
-      name,
-      isCustom: true,
-    };
-    setCategories((prev) => [...prev, newCat]);
-  };
-
-  // 7. Store / Inventory Handlers
-  const handleAddStoreItem = (newItem: Omit<StoreItem, 'id' | 'lastRestockedDate'>) => {
-    const item: StoreItem = {
-      ...newItem,
-      id: `store-${Date.now()}`,
-      lastRestockedDate: new Date().toISOString().split('T')[0],
-    };
-    setStoreItems((prev) => [...prev, item]);
-    handleAddAuditLog(
-      'Created Store Item',
-      `Created new hardware store item "${item.name}" under category "${categories.find(c => c.id === item.categoryId)?.name || 'Unknown'}"`
-    );
-  };
-
-  const handleRestockStoreItem = (itemId: string, restockQty: number, createExpense: boolean, programId?: string, communityId?: string, projectId?: string) => {
-    const item = storeItems.find((i) => i.id === itemId);
-    if (!item) return;
-
-    setStoreItems((prev) =>
-      prev.map((i) =>
-        i.id === itemId
-          ? {
-              ...i,
-              quantity: i.quantity + restockQty,
-              lastRestockedDate: new Date().toISOString().split('T')[0]
-            }
-          : i
-      )
-    );
-
-    handleAddAuditLog(
-      'Restocked Store Item',
-      `Restocked "${item.name}" with +${restockQty} units (New stock: ${item.quantity + restockQty} units)`
-    );
-
-    // Optionally create an expense for buying this new stock
-    if (createExpense && programId && communityId && projectId) {
-      const shouldAutoApprove = currentUser.role === 'Administrator' || currentUser.role === 'Project Manager' || currentUser.role === 'Finance Officer';
-      const purchaseExpense: Expense = {
-        id: `exp-restock-${Date.now()}`,
-        date: new Date().toISOString().split('T')[0],
-        programId,
-        communityId,
-        projectId,
-        categoryId: item.categoryId,
-        description: `Restock Purchase: ${restockQty} x ${item.name}`.trim(),
-        vendor: `${item.manufacturer} Supplier`,
-        invoiceNumber: `REST-${Date.now().toString().slice(-6)}`,
-        quantity: restockQty,
-        unitCost: item.unitCost,
-        totalCost: restockQty * item.unitCost,
-        paymentMethod: 'Bank Transfer',
-        referenceNumber: `REST-REF-${Date.now().toString().slice(-6)}`,
-        status: shouldAutoApprove ? 'Approved' : 'Pending Approval',
-        approvedBy: shouldAutoApprove ? currentUser.name : undefined,
-        createdBy: currentUser.name,
-        createdAt: new Date().toISOString(),
-        notes: `Restock procurement charge added to project ledger.`,
-      };
-      setExpenses((prev) => [purchaseExpense, ...prev]);
-    }
-  };
-
-  const handleDispatchStoreItem = (
-    itemId: string,
-    programId: string,
-    communityId: string,
-    projectId: string,
-    quantity: number,
-    dispatchedBy: string,
-    notes?: string
-  ) => {
-    const item = storeItems.find((i) => i.id === itemId);
-    if (!item) return;
-
-    if (item.quantity < quantity) {
-      alert("Error: Insufficient stock in store.");
-      return;
-    }
-
-    // Deduct stock
-    setStoreItems((prev) =>
-      prev.map((i) =>
-        i.id === itemId
-          ? { ...i, quantity: i.quantity - quantity }
-          : i
-      )
-    );
-
-    // Create an automated expense for this project
-    const shouldAutoApprove = currentUser.role === 'Administrator' || currentUser.role === 'Project Manager' || currentUser.role === 'Finance Officer';
-    const newExpense: Expense = {
-      id: `exp-dispatch-${Date.now()}`,
-      date: new Date().toISOString().split('T')[0],
-      programId,
-      communityId,
-      projectId,
-      categoryId: item.categoryId,
-      description: `Store Dispatch: ${quantity} x ${item.name}. ${notes || ''}`.trim(),
-      vendor: `Central Store [Mfr: ${item.manufacturer}]`,
-      invoiceNumber: `DISP-${Date.now().toString().slice(-6)}`,
-      quantity,
-      unitCost: item.unitCost,
-      totalCost: quantity * item.unitCost,
-      paymentMethod: 'Bank Transfer', // Default internal charge
-      referenceNumber: `STORE-REF-${Date.now().toString().slice(-6)}`,
-      status: shouldAutoApprove ? 'Approved' : 'Pending Approval',
-      approvedBy: shouldAutoApprove ? currentUser.name : undefined,
-      createdBy: currentUser.name,
-      createdAt: new Date().toISOString(),
-      notes: `Materials drawn from central warehouse stock. Dispatched by ${dispatchedBy}.`,
-    };
-
-    setExpenses((prev) => [newExpense, ...prev]);
-
-    // Add Audit Log
-    handleAddAuditLog(
-      'Store Dispatch',
-      `Dispatched ${quantity} units of "${item.name}" from central store to Project ID: ${projectId}. (Value: ₦${(quantity * item.unitCost).toLocaleString()})`
-    );
-  };
-
-  // ================= SOLAR PANEL CMS HANDLERS =================
-
-  const handleAddSolarProduct = (newProd: Omit<SolarPanelProduct, 'id' | 'createdAt' | 'updatedAt' | 'totalValue'>) => {
-    const id = `sp-${Date.now()}`;
-    const totalValue = newProd.unitPrice * newProd.quantity;
-    const now = new Date().toISOString();
-
-    const createdProduct: SolarPanelProduct = {
-      ...newProd,
-      id,
-      totalValue,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    setSolarProducts(prev => [createdProduct, ...prev]);
-
-    // Record initial stock movement log
-    if (newProd.quantity > 0) {
-      const initialLog: StockMovementLog = {
-        id: `log-${Date.now()}`,
-        productId: id,
-        productName: newProd.name,
-        capacityLabel: newProd.capacityLabel,
-        changeType: 'Initial Intake',
-        quantityChange: newProd.quantity,
-        previousQuantity: 0,
-        newQuantity: newProd.quantity,
-        unitPrice: newProd.unitPrice,
-        totalMovementValue: totalValue,
-        performerName: currentUser.name,
-        performerRole: currentUser.role,
-        timestamp: now,
-        notes: 'Initial product intake into solar panel CMS inventory',
-      };
-      setStockLogs(prev => [initialLog, ...prev]);
-    }
-
-    handleAddAuditLog(
-      'Created Solar Panel Product',
-      `Added solar panel product "${newProd.name}" (${newProd.capacityLabel}) - Qty: ${newProd.quantity}, Unit Price: ₦${newProd.unitPrice.toLocaleString()}`
-    );
-  };
-
-  const handleUpdateSolarProduct = (updated: SolarPanelProduct) => {
-    const totalValue = updated.unitPrice * updated.quantity;
-    const productWithTotal = { ...updated, totalValue, updatedAt: new Date().toISOString() };
-
-    setSolarProducts(prev => prev.map(p => p.id === updated.id ? productWithTotal : p));
-
-    handleAddAuditLog(
-      'Updated Solar Panel Product',
-      `Updated product details for "${updated.name}" (${updated.capacityLabel})`
-    );
-  };
-
-  const handleDeleteSolarProduct = (productId: string) => {
-    const found = solarProducts.find(p => p.id === productId);
-    setSolarProducts(prev => prev.filter(p => p.id !== productId));
-
-    if (found) {
-      handleAddAuditLog(
-        'Deleted Solar Panel Product',
-        `Deleted solar panel product "${found.name}" (${found.capacityLabel})`
-      );
-    }
-  };
-
-  const handleDuplicateSolarProduct = (productId: string) => {
-    const found = solarProducts.find(p => p.id === productId);
-    if (!found) return;
-
-    const dupId = `sp-dup-${Date.now()}`;
-    const dupName = `Copy of ${found.name}`;
-    const now = new Date().toISOString();
-
-    const duplicated: SolarPanelProduct = {
-      ...found,
-      id: dupId,
-      name: dupName,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    setSolarProducts(prev => [duplicated, ...prev]);
-
-    handleAddAuditLog(
-      'Duplicated Solar Panel Product',
-      `Duplicated "${found.name}" as "${dupName}"`
-    );
-  };
-
-  const handleArchiveSolarProduct = (productId: string) => {
-    setSolarProducts(prev => prev.map(p => {
-      if (p.id === productId) {
-        return { ...p, isArchived: true, status: 'Archived', updatedAt: new Date().toISOString() };
-      }
-      return p;
-    }));
-
-    handleAddAuditLog(
-      'Archived Solar Panel Product',
-      `Archived solar panel product ID: ${productId}`
-    );
-  };
-
-  const handleRestoreSolarProduct = (productId: string) => {
-    setSolarProducts(prev => prev.map(p => {
-      if (p.id === productId) {
-        const status = p.quantity <= 0 ? 'Out of Stock' : p.quantity <= p.minStockLevel ? 'Low Stock' : 'In Stock';
-        return { ...p, isArchived: false, status, updatedAt: new Date().toISOString() };
-      }
-      return p;
-    }));
-
-    handleAddAuditLog(
-      'Restored Solar Panel Product',
-      `Restored solar panel product ID: ${productId}`
-    );
-  };
-
-  const handleAdjustSolarStock = (
-    productId: string,
-    changeType: 'Add Stock' | 'Remove Stock' | 'Adjust Stock',
-    qtyChangeOrAbsolute: number,
-    notes: string
-  ) => {
-    const product = solarProducts.find(p => p.id === productId);
-    if (!product) return;
-
-    const prevQty = product.quantity;
-    let newQty = prevQty;
-    let actualChange = 0;
-
-    if (changeType === 'Add Stock') {
-      actualChange = Math.abs(qtyChangeOrAbsolute);
-      newQty = prevQty + actualChange;
-    } else if (changeType === 'Remove Stock') {
-      actualChange = -Math.abs(qtyChangeOrAbsolute);
-      newQty = Math.max(0, prevQty + actualChange);
-    } else {
-      newQty = Math.max(0, qtyChangeOrAbsolute);
-      actualChange = newQty - prevQty;
-    }
-
-    const newStatus = newQty <= 0 ? 'Out of Stock' : newQty <= product.minStockLevel ? 'Low Stock' : 'In Stock';
-    const newTotalValue = newQty * product.unitPrice;
-
-    setSolarProducts(prev => prev.map(p => {
-      if (p.id === productId) {
-        return {
-          ...p,
-          quantity: newQty,
-          status: newStatus,
-          totalValue: newTotalValue,
-          updatedAt: new Date().toISOString(),
-        };
-      }
-      return p;
-    }));
-
-    // Record Stock Movement Log
-    const log: StockMovementLog = {
-      id: `log-${Date.now()}`,
-      productId: product.id,
-      productName: product.name,
-      capacityLabel: product.capacityLabel,
-      changeType,
-      quantityChange: actualChange,
-      previousQuantity: prevQty,
-      newQuantity: newQty,
-      unitPrice: product.unitPrice,
-      totalMovementValue: Math.abs(actualChange) * product.unitPrice,
-      performerName: currentUser.name,
-      performerRole: currentUser.role,
-      timestamp: new Date().toISOString(),
-      notes,
-    };
-
-    setStockLogs(prev => [log, ...prev]);
-
-    handleAddAuditLog(
-      `Stock Action: ${changeType}`,
-      `Adjusted stock for "${product.name}" (${product.capacityLabel}) from ${prevQty} to ${newQty} units. Notes: ${notes}`
-    );
-  };
-
-  const handleAddSolarCapacity = (cap: Omit<SolarPanelCapacity, 'id'>) => {
-    const id = `cap-custom-${Date.now()}`;
-    const newCap: SolarPanelCapacity = { ...cap, id };
-    setSolarCapacities(prev => [...prev, newCap]);
-
-    handleAddAuditLog(
-      'Added Solar Panel Capacity',
-      `Added custom wattage capacity "${cap.label}" (${cap.wattage}W)`
-    );
-  };
-
-  const handleUpdateSolarCapacity = (cap: SolarPanelCapacity) => {
-    setSolarCapacities(prev => prev.map(c => c.id === cap.id ? cap : c));
-
-    handleAddAuditLog(
-      'Updated Solar Panel Capacity',
-      `Updated capacity label "${cap.label}" (${cap.wattage}W)`
-    );
-  };
-
-  const handleDeleteSolarCapacity = (capId: string) => {
-    setSolarCapacities(prev => prev.filter(c => c.id !== capId));
-
-    handleAddAuditLog(
-      'Deleted Solar Panel Capacity',
-      `Deleted capacity ID: ${capId}`
-    );
-  };
-
-  // Nationwide Logistics Operational Transaction Handlers
-  const handleCreateTransfer = (
-    transferData: Omit<InterStoreTransfer, 'id' | 'createdAt' | 'updatedAt'>
-  ) => {
-    const nextSeq = logisticsTransfers.length + 1;
-    const year = new Date().getFullYear();
-    const newId = `STT-${year}-${String(nextSeq).padStart(4, '0')}`;
-    const now = new Date().toISOString();
-
-    const created: InterStoreTransfer = {
-      ...transferData,
-      id: newId,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    setLogisticsTransfers((prev) => [created, ...prev]);
-
-    handleAddAuditLog(
-      'Created Inter-Store Transfer (STT)',
-      `Initiated transfer ${newId} from ${transferData.originStoreName} to ${transferData.destinationStoreName} (${transferData.totalQuantity} units, ₦${transferData.totalValuation.toLocaleString()})`
-    );
-  };
-
-  const handleUpdateTransferStatus = (
-    transferId: string,
-    newStatus: TransferStatus,
-    metadata?: {
-      waybillNumber?: string;
-      driverName?: string;
-      driverPhone?: string;
-      vehicleRegistration?: string;
-      approvalNotes?: string;
-      receivedNotes?: string;
-      varianceNotes?: string;
-    }
-  ) => {
-    const target = logisticsTransfers.find((t) => t.id === transferId);
-    if (!target) return;
-
-    const now = new Date().toISOString();
-
-    setLogisticsTransfers((prev) =>
-      prev.map((t) => {
-        if (t.id !== transferId) return t;
-        return {
-          ...t,
-          status: newStatus,
-          updatedAt: now,
-          waybillNumber: metadata?.waybillNumber || t.waybillNumber,
-          driverName: metadata?.driverName || t.driverName,
-          driverPhone: metadata?.driverPhone || t.driverPhone,
-          vehicleRegistration: metadata?.vehicleRegistration || t.vehicleRegistration,
-          approvalNotes: metadata?.approvalNotes || t.approvalNotes,
-          receivedNotes: metadata?.receivedNotes || t.receivedNotes,
-          varianceNotes: metadata?.varianceNotes || t.varianceNotes,
-          approvedBy: newStatus === 'Approved' ? currentUser.name : t.approvedBy,
-          receivedBy: newStatus === 'Received' ? currentUser.name : t.receivedBy,
-          dispatchDate: newStatus === 'In Transit' ? now : t.dispatchDate,
-          actualArrivalDate: newStatus === 'Received' ? now : t.actualArrivalDate,
-        };
-      })
-    );
-
-    // Dynamic Ledger adjustments based on lifecycle event:
-    if (newStatus === 'In Transit') {
-      // Deduct/Mark outward transit from origin store
-      setStockBalances((prev) => {
-        return prev.map((bal) => {
-          if (bal.storeId !== target.originStoreId) return bal;
-          const matchedItem = target.items.find((i) => i.productId === bal.productId);
-          if (!matchedItem) return bal;
-
-          const newOutward = bal.outwardTransfers + matchedItem.quantityRequested;
-          const currentStock =
-            bal.initialCmsStock + bal.inwardTransfers + bal.purchases - newOutward - bal.siteDispatch;
-          const unitCost = matchedItem.unitCost;
-          return {
-            ...bal,
-            outwardTransfers: newOutward,
-            currentStock,
-            totalValuation: currentStock * unitCost,
-            reorderRequired: currentStock <= bal.minThreshold,
-          };
-        });
-      });
-
-      // Update Serialized Assets to "In Transit"
-      setSerializedAssets((prev) => {
-        const allSerialsInTransfer = target.items.flatMap((i) => i.serialNumbers);
-        return prev.map((asset) => {
-          if (!allSerialsInTransfer.includes(asset.serialNumber)) return asset;
-          return {
-            ...asset,
-            status: 'In Transit',
-            currentTransferId: target.id,
-            history: [
-              {
-                timestamp: now,
-                action: 'Dispatched via Highway Transit',
-                location: `En Route to ${target.destinationStoreName}`,
-                details: `Waybill #${metadata?.waybillNumber || target.waybillNumber || 'Pending'} - Carrier: ${target.logisticsVendor}`,
-                performer: currentUser.name,
-              },
-              ...asset.history,
-            ],
-          };
-        });
-      });
-
-      handleAddAuditLog(
-        'Dispatched Inter-Store Transfer',
-        `Dispatched STT ${target.id} from ${target.originStoreName}. Carrier: ${target.logisticsVendor}, Waybill: ${metadata?.waybillNumber || target.waybillNumber}`
-      );
-    } else if (newStatus === 'Received') {
-      // Credit inward stock to destination store
-      setStockBalances((prev) => {
-        return prev.map((bal) => {
-          if (bal.storeId !== target.destinationStoreId) return bal;
-          const matchedItem = target.items.find((i) => i.productId === bal.productId);
-          if (!matchedItem) return bal;
-
-          const newInward = bal.inwardTransfers + matchedItem.quantityRequested;
-          const currentStock =
-            bal.initialCmsStock + newInward + bal.purchases - bal.outwardTransfers - bal.siteDispatch;
-          const unitCost = matchedItem.unitCost;
-          return {
-            ...bal,
-            inwardTransfers: newInward,
-            currentStock,
-            totalValuation: currentStock * unitCost,
-            reorderRequired: currentStock <= bal.minThreshold,
-          };
-        });
-      });
-
-      // Update Serialized Assets to "In Warehouse" at destination store
-      setSerializedAssets((prev) => {
-        const allSerialsInTransfer = target.items.flatMap((i) => i.serialNumbers);
-        return prev.map((asset) => {
-          if (!allSerialsInTransfer.includes(asset.serialNumber)) return asset;
-          return {
-            ...asset,
-            status: 'In Warehouse',
-            currentStoreId: target.destinationStoreId,
-            currentStoreName: target.destinationStoreName,
-            currentTransferId: undefined,
-            history: [
-              {
-                timestamp: now,
-                action: 'Received at Destination Warehouse',
-                location: target.destinationStoreName,
-                details: `Verified and booked into store inventory from STT ${target.id}`,
-                performer: currentUser.name,
-              },
-              ...asset.history,
-            ],
-          };
-        });
-      });
-
-      handleAddAuditLog(
-        'Received Inter-Store Transfer',
-        `Received STT ${target.id} at ${target.destinationStoreName}. Verified by ${currentUser.name}`
-      );
-    } else {
-      handleAddAuditLog(
-        `STT Status Update: ${newStatus}`,
-        `Advanced STT ${target.id} to ${newStatus}`
-      );
-    }
-  };
-
-  const handleAddSerializedAsset = (asset: SerializedAsset) => {
-    setSerializedAssets((prev) => [asset, ...prev]);
-    handleAddAuditLog(
-      'Registered Serialized Asset',
-      `Registered serial unit ${asset.serialNumber} (${asset.productName}) at ${asset.currentStoreName}`
-    );
-  };
-
-  // Render proper view based on active tab
-  const renderActiveView = () => {
+  const renderActiveTabContent = () => {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <Dashboard
-            programs={programs}
-            communities={communities}
-            projects={projects}
-            expenses={expenses}
-            categories={categories}
-            solarProducts={solarProducts}
-            solarCapacities={solarCapacities}
-            logisticsProducts={logisticsProducts}
-            stockBalances={stockBalances}
-          />
-        );
-      case 'logistics':
-        return (
-          <NationwideLogistics
-            stores={logisticsStores}
-            products={logisticsProducts}
-            transfers={logisticsTransfers}
-            stockBalances={stockBalances}
-            serializedAssets={serializedAssets}
-            policies={logisticsPolicies}
-            suppliers={logisticsSuppliers}
-            transactions={stockTransactions}
-            currentUserRole={currentUser.role}
-            currentUserName={currentUser.name}
-            onCreateTransfer={handleCreateTransfer}
-            onUpdateTransferStatus={handleUpdateTransferStatus}
-            onAddSerializedAsset={handleAddSerializedAsset}
-          />
-        );
-      case 'solar-panels':
-        return (
-          <SolarPanelCMS
-            products={solarProducts}
-            capacities={solarCapacities}
-            stockLogs={stockLogs}
-            currentUserRole={currentUser.role}
-            currentUserName={currentUser.name}
-            onAddProduct={handleAddSolarProduct}
-            onUpdateProduct={handleUpdateSolarProduct}
-            onDeleteProduct={handleDeleteSolarProduct}
-            onDuplicateProduct={handleDuplicateSolarProduct}
-            onArchiveProduct={handleArchiveSolarProduct}
-            onRestoreProduct={handleRestoreSolarProduct}
-            onAdjustStock={handleAdjustSolarStock}
-            onAddCapacity={handleAddSolarCapacity}
-            onUpdateCapacity={handleUpdateSolarCapacity}
-            onDeleteCapacity={handleDeleteSolarCapacity}
+          <ErpDashboard
+            currentUser={currentUser}
+            setActiveTab={setActiveTab}
+            onOpenCreateModal={handleOpenCreateModal}
           />
         );
       case 'programmes':
         return (
-          <Programmes
-            programs={programs}
-            expenses={expenses}
-            currentUserRole={currentUser.role}
-            onAddProgram={handleAddProgram}
-            onUpdateProgram={handleUpdateProgram}
-            onArchiveProgram={handleArchiveProgram}
-            onUnarchiveProgram={handleUnarchiveProgram}
-            onAddAuditLog={handleAddAuditLog}
+          <ErpProgrammes
+            onOpenCreateModal={() => handleOpenCreateModal('programme')}
           />
         );
       case 'communities':
         return (
-          <Communities
-            communities={communities}
-            programs={programs}
-            projects={projects}
-            expenses={expenses}
-            currentUserRole={currentUser.role}
-            onAddCommunity={handleAddCommunity}
-            onUpdateCommunity={handleUpdateCommunity}
-            onDeleteCommunity={handleDeleteCommunity}
-            onAddAuditLog={handleAddAuditLog}
+          <ErpCommunities
+            onOpenCreateModal={() => handleOpenCreateModal('community')}
           />
         );
-      case 'projects':
+      case 'procurement':
         return (
-          <Projects
-            projects={projects}
-            communities={communities}
-            programs={programs}
-            expenses={expenses}
-            currentUserRole={currentUser.role}
-            onAddProject={handleAddProject}
-            onUpdateProject={handleUpdateProject}
-            onAddAuditLog={handleAddAuditLog}
+          <ErpProcurement
+            currentUser={currentUser}
+            onOpenCreateModal={handleOpenCreateModal}
+            onConvertToTransfer={handleConvertToTransfer}
           />
         );
-      case 'store':
+      case 'inventory':
         return (
-          <Store
-            storeItems={storeItems}
-            categories={categories}
-            projects={projects}
-            programs={programs}
-            communities={communities}
-            currentUserRole={currentUser.role}
-            currentUserName={currentUser.name}
-            onAddStoreItem={handleAddStoreItem}
-            onRestockStoreItem={handleRestockStoreItem}
-            onDispatchStoreItem={handleDispatchStoreItem}
+          <ErpInventory
+            currentUser={currentUser}
+            onOpenCreateItemModal={() => handleOpenCreateModal('item')}
+            onOpenStockMovementModal={() => handleOpenCreateModal('movement')}
           />
         );
-      case 'expenses':
+      case 'transfers':
         return (
-          <Expenses
-            expenses={expenses}
-            programs={programs}
-            communities={communities}
-            projects={projects}
-            categories={categories}
-            currentUserRole={currentUser.role}
-            currentUserName={currentUser.name}
-            onAddExpense={handleAddExpense}
-            onUpdateExpense={handleUpdateExpense}
-            onApproveExpense={handleApproveExpense}
-            onRejectExpense={handleRejectExpense}
-            onAddCustomCategory={handleAddCustomCategory}
-            onAddAuditLog={handleAddAuditLog}
+          <ErpTransfers
+            currentUser={currentUser}
+            onOpenCreateTransfer={() => handleOpenCreateModal('transfer')}
+            onViewWaybill={handleViewWaybill}
           />
         );
+      case 'waybills':
+        return (
+          <ErpWaybills
+            onOpenCreateWaybill={() => handleOpenCreateModal('waybill')}
+            selectedWaybillNumber={selectedWaybillNumber}
+          />
+        );
+      case 'receiving':
+        return (
+          <ErpGoodsReceiving
+            currentUser={currentUser}
+            onOpenCreateGrn={() => handleOpenCreateModal('grn')}
+          />
+        );
+      case 'assets':
+        return (
+          <ErpAssets
+            currentUser={currentUser}
+            onOpenCreateAsset={() => handleOpenCreateModal('asset')}
+          />
+        );
+      case 'finance':
+        return <ErpFinance currentUser={currentUser} />;
       case 'reports':
-        return (
-          <Reports
-            expenses={expenses}
-            programs={programs}
-            communities={communities}
-            projects={projects}
-            categories={categories}
-          />
-        );
+        return <ErpReports />;
       case 'audit':
+        return <ErpAuditLogs />;
+      case 'admin':
         return (
-          <AuditTrail
-            auditLogs={auditLogs}
-            onClearLogs={(currentUser.role === 'Administrator' || currentUser.role === 'Finance Officer') ? handleClearAuditLogs : undefined}
+          <ErpAdmin
+            currentUser={currentUser}
+            onSwitchUser={setCurrentUser}
+            onOpenCreateStore={() => handleOpenCreateModal('store')}
           />
         );
       default:
-        return <div className="text-center py-12">Tab not implemented.</div>;
+        return (
+          <ErpDashboard
+            currentUser={currentUser}
+            setActiveTab={setActiveTab}
+            onOpenCreateModal={handleOpenCreateModal}
+          />
+        );
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative overflow-x-hidden z-10 selection:bg-emerald-500/30 selection:text-emerald-200">
-      {/* Background Ambient Glow */}
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-emerald-600/15 blur-[120px] rounded-full"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-yellow-500/8 blur-[100px] rounded-full"></div>
-        <div className="absolute top-[40%] right-[20%] w-[30%] h-[30%] bg-blue-600/10 blur-[100px] rounded-full"></div>
-      </div>
+    <ErpLayout
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      currentUser={currentUser}
+      onUserChange={setCurrentUser}
+      users={users}
+      onOpenCreateModal={handleOpenCreateModal}
+    >
+      {renderActiveTabContent()}
 
-      {/* Top Header */}
-      <div className="relative z-10">
-        <Header
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          currentUser={currentUser}
-          onUserChange={setCurrentUser}
-          users={usersList}
-          onRestartOnboarding={() => {
-            setOnboardingCompleted(false);
-          }}
-        />
-      </div>
-
-      {/* Main Workspace Frame */}
-      <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-        {renderActiveView()}
-      </main>
-
-      {/* User Onboarding Flow overlay/widget */}
-      {!onboardingCompleted && (
-        <Onboarding
-          currentUser={currentUser}
-          onUserChange={setCurrentUser}
-          onAddUser={(newUser) => setUsersList((prev) => [...prev, newUser])}
-          users={usersList}
-          setActiveTab={setActiveTab}
-          onComplete={() => setOnboardingCompleted(true)}
-          onboardingCompleted={onboardingCompleted}
-        />
-      )}
-
-      {/* Footer credit lines (humble, compliant) */}
-      <footer className="bg-white/5 backdrop-blur-md border-t border-white/5 py-4 print:hidden relative z-10">
-        <div className="max-w-7xl mx-auto px-4 text-center text-xs font-mono text-white/30">
-          SolarCorp Internal Field Operations & Budget Verification Console © 2026
-        </div>
-      </footer>
-    </div>
+      {/* Quick Action & Flow Modals */}
+      <CreateModals
+        modalType={activeModal}
+        onClose={handleCloseModal}
+        currentUser={currentUser}
+        transferDataFromPR={transferDataFromPR}
+      />
+    </ErpLayout>
   );
 }

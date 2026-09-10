@@ -1,0 +1,236 @@
+{
+  "entities": {
+    "EnterpriseProgram": {
+      "title": "Enterprise Program",
+      "description": "Renewable energy deployment programme with allocated budget and communities",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "companyId": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "clientDonor": { "type": "string" },
+        "approvedBudget": { "type": "number" },
+        "committedBudget": { "type": "number" },
+        "actualSpend": { "type": "number" },
+        "status": { "type": "string", "enum": ["Planning", "Active", "On Hold", "Completed", "Archived"] }
+      },
+      "required": ["id", "name", "code", "approvedBudget", "status"]
+    },
+    "EnterpriseCommunity": {
+      "title": "Enterprise Community Site",
+      "description": "Community site targeted for renewable energy installation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "programId": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "state": { "type": "string" },
+        "lga": { "type": "string" },
+        "deploymentStatus": { "type": "string" },
+        "operationalStatus": { "type": "string" }
+      },
+      "required": ["id", "programId", "name", "code", "state", "deploymentStatus"]
+    },
+    "EnterpriseStore": {
+      "title": "Enterprise Store / Warehouse",
+      "description": "Multi-tier inventory storage depot (Central, Regional, or Field site)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "level": { "type": "string" },
+        "state": { "type": "string" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "code", "name", "level", "state"]
+    },
+    "InventoryItemMaster": {
+      "title": "Inventory Item Master",
+      "description": "Centralized catalogue item with specifications, warranty, and capacity rating",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sku": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "standardCost": { "type": "number" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "sku", "name", "category", "standardCost"]
+    },
+    "InventoryStockTransaction": {
+      "title": "Stock Movement Transaction",
+      "description": "Traceable double-entry inventory ledger entry with balances",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "transactionType": { "type": "string" },
+        "itemId": { "type": "string" },
+        "quantity": { "type": "number" },
+        "beforeBalance": { "type": "number" },
+        "afterBalance": { "type": "number" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "transactionType", "itemId", "quantity", "beforeBalance", "afterBalance"]
+    },
+    "PurchaseRequisition": {
+      "title": "Purchase Requisition",
+      "description": "Material request requiring multi-departmental approvals",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "prNumber": { "type": "string" },
+        "programId": { "type": "string" },
+        "estimatedTotalCost": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "prNumber", "programId", "estimatedTotalCost", "status"]
+    },
+    "PurchaseOrder": {
+      "title": "Purchase Order",
+      "description": "Legally binding procurement agreement issued to vendor",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "poNumber": { "type": "string" },
+        "vendorName": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "poNumber", "vendorName", "totalAmount", "status"]
+    },
+    "InterStoreTransferOrder": {
+      "title": "Inter Store Transfer Order",
+      "description": "Trackable movement of stock between storage hubs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "transferNumber": { "type": "string" },
+        "sourceStoreId": { "type": "string" },
+        "destinationStoreId": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "transferNumber", "sourceStoreId", "destinationStoreId", "status"]
+    },
+    "DigitalWaybill": {
+      "title": "Digital Waybill",
+      "description": "Dispatch logistics document with digital verification hash",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "waybillNumber": { "type": "string" },
+        "verificationHash": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "waybillNumber", "verificationHash", "status"]
+    },
+    "GoodsReceiptNote": {
+      "title": "Goods Receipt Note",
+      "description": "Physical delivery receipt with inspection and quarantine segregation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "grnNumber": { "type": "string" },
+        "receivingStoreId": { "type": "string" },
+        "hasDiscrepancies": { "type": "boolean" }
+      },
+      "required": ["id", "grnNumber", "receivingStoreId"]
+    },
+    "SerializedAssetRecord": {
+      "title": "Serialized Asset Record",
+      "description": "Individual high-value solar asset with serial number and lifecycle tracker",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "assetTag": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "operationalStatus": { "type": "string" }
+      },
+      "required": ["id", "assetTag", "serialNumber", "operationalStatus"]
+    },
+    "ThreeWayMatchResult": {
+      "title": "Three-Way Invoice Match Result",
+      "description": "Comparison between PO, GRN, and Vendor Invoice",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "poNumber": { "type": "string" },
+        "grnNumber": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "status": { "type": "string", "enum": ["MATCHED", "PARTIALLY MATCHED", "EXCEPTION"] }
+      },
+      "required": ["id", "poNumber", "grnNumber", "invoiceNumber", "status"]
+    },
+    "EnterpriseAuditLog": {
+      "title": "Enterprise Audit Log",
+      "description": "Immutable audit record for regulatory and operational governance",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "userId": { "type": "string" },
+        "action": { "type": "string" },
+        "immutableHash": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "userId", "action", "immutableHash"]
+    }
+  },
+  "firestore": {
+    "/programs/{programId}": {
+      "schema": "EnterpriseProgram",
+      "description": "Collection of enterprise programmes"
+    },
+    "/communities/{communityId}": {
+      "schema": "EnterpriseCommunity",
+      "description": "Collection of deployment communities"
+    },
+    "/stores/{storeId}": {
+      "schema": "EnterpriseStore",
+      "description": "Multi-tier store locations"
+    },
+    "/inventory_items/{itemId}": {
+      "schema": "InventoryItemMaster",
+      "description": "Centralized inventory catalogue"
+    },
+    "/stock_transactions/{transactionId}": {
+      "schema": "InventoryStockTransaction",
+      "description": "Immutable ledger of all physical inventory movements"
+    },
+    "/purchase_requisitions/{prId}": {
+      "schema": "PurchaseRequisition",
+      "description": "Procurement requisitions"
+    },
+    "/purchase_orders/{poId}": {
+      "schema": "PurchaseOrder",
+      "description": "Approved purchase orders"
+    },
+    "/inter_store_transfers/{transferId}": {
+      "schema": "InterStoreTransferOrder",
+      "description": "Inter-store transfer shipments"
+    },
+    "/waybills/{waybillId}": {
+      "schema": "DigitalWaybill",
+      "description": "Cryptographically hashed digital waybills"
+    },
+    "/goods_receipt_notes/{grnId}": {
+      "schema": "GoodsReceiptNote",
+      "description": "Goods receiving notes with discrepancy flags"
+    },
+    "/serialized_assets/{assetId}": {
+      "schema": "SerializedAssetRecord",
+      "description": "High-value serialized asset tracking"
+    },
+    "/three_way_matches/{matchId}": {
+      "schema": "ThreeWayMatchResult",
+      "description": "Three-way invoice matching records"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "EnterpriseAuditLog",
+      "description": "Append-only immutable audit trail"
+    }
+  }
+}
