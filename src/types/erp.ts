@@ -744,7 +744,8 @@ export interface EnterpriseAuditLog {
     | 'Asset'
     | 'Invoice'
     | 'Payment'
-    | 'StockBalance';
+    | 'StockBalance'
+    | 'InventoryItem';
   recordId: string;
   action: string;
   previousStateSummary?: string;

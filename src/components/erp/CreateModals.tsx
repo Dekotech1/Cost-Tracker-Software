@@ -24,6 +24,10 @@ import {
   EnterpriseProgram,
   EnterpriseCommunity,
   EnterpriseStore,
+  InventoryItemMaster,
+  InventoryCategory,
+  SolarCapacityTier,
+  InventoryTransactionType,
 } from '../../types/erp';
 
 interface CreateModalsProps {
@@ -94,6 +98,37 @@ export default function CreateModals({
   const [commLga, setCommLga] = useState('Mokwa');
   const [commKwp, setCommKwp] = useState(120);
   const [commKwh, setCommKwh] = useState(380);
+
+  // 8. ITEM MASTER STATE
+  const [itemSku, setItemSku] = useState('');
+  const [itemName, setItemName] = useState('');
+  const [itemCategory, setItemCategory] = useState<InventoryCategory>('SOLAR PANELS');
+  const [itemSubcategory, setItemSubcategory] = useState('Tier-1 Monocrystalline');
+  const [itemBrand, setItemBrand] = useState('Canadian Solar');
+  const [itemModel, setItemModel] = useState('');
+  const [itemUom, setItemUom] = useState<'pcs' | 'meters' | 'rolls' | 'kg' | 'sets' | 'boxes'>('pcs');
+  const [itemCost, setItemCost] = useState(115000);
+  const [itemRequiresSerial, setItemRequiresSerial] = useState(true);
+  const [itemRequiresBatch, setItemRequiresBatch] = useState(true);
+  const [itemWarrantyMonths, setItemWarrantyMonths] = useState(144);
+  const [itemReorderLevel, setItemReorderLevel] = useState(100);
+  const [itemMinStock, setItemMinStock] = useState(50);
+  const [itemMaxStock, setItemMaxStock] = useState(1500);
+  const [itemSolarTier, setItemSolarTier] = useState<SolarCapacityTier>('550W');
+  const [itemWattage, setItemWattage] = useState(550);
+  const [itemVoltage, setItemVoltage] = useState('41.5V Vmp');
+  const [itemEfficiency, setItemEfficiency] = useState(21.3);
+  const [itemDesc, setItemDesc] = useState('');
+  const [itemAllocateInitialStock, setItemAllocateInitialStock] = useState(true);
+  const [itemInitialStoreId, setItemInitialStoreId] = useState(stores[0]?.id || '');
+  const [itemInitialQty, setItemInitialQty] = useState(100);
+
+  // 9. STOCK MOVEMENT STATE
+  const [movItemId, setMovItemId] = useState(items[0]?.id || '');
+  const [movStoreId, setMovStoreId] = useState(stores[0]?.id || '');
+  const [movType, setMovType] = useState<InventoryTransactionType>('PURCHASE RECEIPT');
+  const [movQty, setMovQty] = useState(50);
+  const [movReason, setMovReason] = useState('Standard stock intake/receipt');
 
   if (!modalType) return null;
 
@@ -385,6 +420,87 @@ export default function CreateModals({
     onClose();
   };
 
+  const handleCreateItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    const finalSku = itemSku.trim() || `ITM-${itemCategory.slice(0, 3)}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const finalName = itemName.trim();
+    if (!finalName) return;
+
+    const newItem: InventoryItemMaster = {
+      id: `item-${Date.now()}`,
+      sku: finalSku.toUpperCase(),
+      itemCode: `COD-${finalSku.toUpperCase()}`,
+      name: finalName,
+      category: itemCategory,
+      subcategory: itemSubcategory || 'Standard Equipment',
+      description: itemDesc || `${finalName} certified for renewable energy infrastructure`,
+      brand: itemBrand || 'Tier-1 Certified',
+      model: itemModel || finalSku,
+      manufacturer: itemBrand || 'Certified OEM',
+      unitOfMeasure: itemUom,
+      barcode: `${Math.floor(1000000000000 + Math.random() * 9000000000000)}`,
+      qrCode: `QR-${finalSku.toUpperCase()}`,
+      requiresSerialTracking: itemRequiresSerial,
+      requiresBatchTracking: itemRequiresBatch,
+      warrantyPeriodMonths: Number(itemWarrantyMonths) || 12,
+      reorderLevel: Number(itemReorderLevel) || 50,
+      minimumStock: Number(itemMinStock) || 20,
+      maximumStock: Number(itemMaxStock) || 1000,
+      standardCost: Number(itemCost) || 0,
+      active: true,
+      solarCapacityTier: itemCategory === 'SOLAR PANELS' ? itemSolarTier : undefined,
+      wattageRating: itemCategory === 'SOLAR PANELS' ? Number(itemWattage) : undefined,
+      voltageRating: itemCategory === 'SOLAR PANELS' ? itemVoltage : undefined,
+      efficiencyPercentage: itemCategory === 'SOLAR PANELS' ? Number(itemEfficiency) : undefined,
+    };
+
+    const initialStock = itemAllocateInitialStock && itemInitialQty > 0 ? {
+      storeId: itemInitialStoreId || stores[0]?.id,
+      quantity: Number(itemInitialQty),
+    } : undefined;
+
+    erpService.saveItem(newItem, currentUser, initialStock);
+    onClose();
+  };
+
+  const handleRecordMovement = (e: React.FormEvent) => {
+    e.preventDefault();
+    const selItem = items.find((i) => i.id === movItemId);
+    const selStore = stores.find((s) => s.id === movStoreId);
+    if (!selItem || !selStore || movQty <= 0) return;
+
+    const currentBal = erpService.getStockBalances().find((b) => b.storeId === selStore.id && b.itemId === selItem.id);
+    const beforeBal = currentBal ? currentBal.onHandQuantity : 0;
+
+    const isReduction = ['DAMAGE', 'LOSS', 'DISPOSAL', 'TRANSFER OUT'].includes(movType);
+    const delta = isReduction ? -Math.min(beforeBal, movQty) : movQty;
+    const afterBal = Math.max(0, beforeBal + delta);
+
+    erpService.updateStockBalance(selStore.id, selItem.id, delta, 0);
+    erpService.recordStockTransaction({
+      transactionType: movType,
+      itemId: selItem.id,
+      itemSku: selItem.sku,
+      itemName: selItem.name,
+      category: selItem.category,
+      quantity: Math.abs(delta),
+      unitCost: selItem.standardCost,
+      totalValue: Math.abs(delta) * selItem.standardCost,
+      destinationLocationId: selStore.id,
+      destinationLocationName: selStore.name,
+      beforeBalance: beforeBal,
+      afterBalance: afterBal,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userRole: currentUser.role,
+      referenceDocumentType: 'ADJUSTMENT_MEMO',
+      referenceDocumentId: `ADJ-${Date.now().toString().slice(-6)}`,
+      reason: movReason || 'Manual inventory stock movement record',
+    });
+
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
@@ -396,6 +512,8 @@ export default function CreateModals({
               {modalType === 'transfer' && 'Issue Inter-Store Transfer Order (STT)'}
               {modalType === 'grn' && 'Log Goods Receipt Note (GRN)'}
               {modalType === 'asset' && 'Register Serialized Solar Asset'}
+              {modalType === 'item' && 'Create New Item Master SKU'}
+              {modalType === 'movement' && 'Record Inventory Stock Movement'}
             </span>
           </div>
           <button
@@ -711,6 +829,342 @@ export default function CreateModals({
                   className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl shadow-lg transition cursor-pointer"
                 >
                   Register Asset Tag
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 5. ITEM MASTER MODAL */}
+          {modalType === 'item' && (
+            <form onSubmit={handleCreateItem} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">
+                    Item Name <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Canadian Solar 550W HiKu6"
+                    value={itemName}
+                    onChange={(e) => setItemName(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">
+                    SKU / Part Code <span className="text-slate-500 text-[10px]">(Optional - Auto if blank)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. SP-CAN-550W-MONO"
+                    value={itemSku}
+                    onChange={(e) => setItemSku(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono placeholder-slate-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Category</label>
+                  <select
+                    value={itemCategory}
+                    onChange={(e) => setItemCategory(e.target.value as InventoryCategory)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                  >
+                    <option value="SOLAR PANELS">Solar Panels</option>
+                    <option value="INVERTERS">Inverters</option>
+                    <option value="BATTERIES">Batteries</option>
+                    <option value="CHARGE CONTROLLERS">Charge Controllers</option>
+                    <option value="CABLES">Cables</option>
+                    <option value="MOUNTING STRUCTURES">Mounting Structures</option>
+                    <option value="PROTECTION EQUIPMENT">Protection Equipment</option>
+                    <option value="ELECTRICAL COMPONENTS">Electrical Components</option>
+                    <option value="TOOLS">Tools</option>
+                    <option value="SPARE PARTS">Spare Parts</option>
+                    <option value="CONSUMABLES">Consumables</option>
+                    <option value="OTHER MATERIALS">Other Materials</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Subcategory</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Mono Half-Cell, LiFePO4, Hybrid"
+                    value={itemSubcategory}
+                    onChange={(e) => setItemSubcategory(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Brand / OEM</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Jinko, Growatt, BYD"
+                    value={itemBrand}
+                    onChange={(e) => setItemBrand(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Model Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. SPF-5000ES"
+                    value={itemModel}
+                    onChange={(e) => setItemModel(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Unit of Measure</label>
+                  <select
+                    value={itemUom}
+                    onChange={(e) => setItemUom(e.target.value as any)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                  >
+                    <option value="pcs">Pieces (pcs)</option>
+                    <option value="meters">Meters</option>
+                    <option value="rolls">Rolls</option>
+                    <option value="kg">Kilograms (kg)</option>
+                    <option value="sets">Sets</option>
+                    <option value="boxes">Boxes</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Standard Cost (₦)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={itemCost}
+                    onChange={(e) => setItemCost(Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Reorder Level</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={itemReorderLevel}
+                    onChange={(e) => setItemReorderLevel(Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Warranty (Months)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={itemWarrantyMonths}
+                    onChange={(e) => setItemWarrantyMonths(Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              {itemCategory === 'SOLAR PANELS' && (
+                <div className="p-3 bg-emerald-950/30 border border-emerald-800/40 rounded-xl space-y-3">
+                  <div className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider font-mono">
+                    Solar Technical Specifications
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div>
+                      <label className="block text-slate-300 text-[11px] mb-1">Capacity Tier</label>
+                      <select
+                        value={itemSolarTier}
+                        onChange={(e) => setItemSolarTier(e.target.value as SolarCapacityTier)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                      >
+                        <option value="600W+">600W+</option>
+                        <option value="550W">550W</option>
+                        <option value="500W">500W</option>
+                        <option value="450W">450W</option>
+                        <option value="400W">400W</option>
+                        <option value="300W">300W</option>
+                        <option value="250W">250W</option>
+                        <option value="200W">200W</option>
+                        <option value="100W">100W</option>
+                        <option value="50W">50W</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-slate-300 text-[11px] mb-1">Wattage (W)</label>
+                      <input
+                        type="number"
+                        value={itemWattage}
+                        onChange={(e) => setItemWattage(Number(e.target.value))}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-300 text-[11px] mb-1">Voltage Rating</label>
+                      <input
+                        type="text"
+                        value={itemVoltage}
+                        onChange={(e) => setItemVoltage(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-300 text-[11px] mb-1">Efficiency (%)</label>
+                      <input
+                        type="number"
+                        step={0.1}
+                        value={itemEfficiency}
+                        onChange={(e) => setItemEfficiency(Number(e.target.value))}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Initial stock check */}
+              <div className="p-3 bg-slate-800/60 border border-slate-700/60 rounded-xl space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer text-slate-200 font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={itemAllocateInitialStock}
+                    onChange={(e) => setItemAllocateInitialStock(e.target.checked)}
+                    className="rounded bg-slate-700 border-slate-600 text-emerald-500 focus:ring-emerald-500"
+                  />
+                  <span>Provision Initial Physical Stock on Hand</span>
+                </label>
+                {itemAllocateInitialStock && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <div>
+                      <label className="block text-slate-400 text-[11px] mb-1">Target Warehouse</label>
+                      <select
+                        value={itemInitialStoreId}
+                        onChange={(e) => setItemInitialStoreId(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                      >
+                        {stores.map((s) => (
+                          <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 text-[11px] mb-1">Initial Quantity ({itemUom})</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={itemInitialQty}
+                        onChange={(e) => setItemInitialQty(Number(e.target.value))}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition cursor-pointer"
+                >
+                  Save Item Master SKU
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 6. STOCK MOVEMENT MODAL */}
+          {modalType === 'movement' && (
+            <form onSubmit={handleRecordMovement} className="space-y-4">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Select Item SKU</label>
+                <select
+                  value={movItemId}
+                  onChange={(e) => setMovItemId(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                >
+                  {items.map((i) => (
+                    <option key={i.id} value={i.id}>{i.name} ({i.sku})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Storage Warehouse / Depot</label>
+                <select
+                  value={movStoreId}
+                  onChange={(e) => setMovStoreId(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                >
+                  {stores.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.level})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Transaction Type</label>
+                  <select
+                    value={movType}
+                    onChange={(e) => setMovType(e.target.value as any)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                  >
+                    <option value="PURCHASE RECEIPT">Purchase Receipt (+ Stock)</option>
+                    <option value="TRANSFER IN">Transfer In (+ Stock)</option>
+                    <option value="ADJUSTMENT">Stock Adjustment (+/- Stock)</option>
+                    <option value="RETURN">Return from Field (+ Stock)</option>
+                    <option value="DAMAGE">Damaged / Quarantine (- Stock)</option>
+                    <option value="LOSS">Loss / Write-off (- Stock)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Quantity</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={movQty}
+                    onChange={(e) => setMovQty(Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Movement Notes &amp; Reason</label>
+                <textarea
+                  rows={2}
+                  value={movReason}
+                  onChange={(e) => setMovReason(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white"
+                  placeholder="e.g. Scheduled count discrepancy, supplier batch intake..."
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg transition cursor-pointer"
+                >
+                  Record Stock Transaction
                 </button>
               </div>
             </form>

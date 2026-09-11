@@ -3,7 +3,7 @@
 // ==============================================================================
 
 import { db, testFirestoreConnection } from './firebase';
-import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, collection, getDocs } from 'firebase/firestore';
 import {
   EnterpriseProgram,
   EnterpriseCommunity,
@@ -154,12 +154,92 @@ class EnterpriseErpService {
     return getLocal<InventoryItemMaster[]>('items', INITIAL_ERP_ITEMS);
   }
 
-  saveItem(item: InventoryItemMaster): void {
+  saveItem(
+    item: InventoryItemMaster,
+    user?: EnterpriseUser,
+    initialStock?: { storeId: string; quantity: number }
+  ): void {
     const list = this.getItems();
     const index = list.findIndex((i) => i.id === item.id);
-    const updated = index >= 0 ? list.map((i) => (i.id === item.id ? item : i)) : [item, ...list];
+    const isNew = index < 0;
+    const updated = isNew ? [item, ...list] : list.map((i) => (i.id === item.id ? item : i));
     setLocal('items', updated);
     setDoc(doc(db, 'inventory_items', item.id), item).catch(() => {});
+
+    // If initial stock was provided for a new item, update balance & log ledger transaction
+    if (initialStock && initialStock.quantity > 0) {
+      const store = this.getStores().find((s) => s.id === initialStock.storeId);
+      this.updateStockBalance(initialStock.storeId, item.id, initialStock.quantity, 0);
+
+      this.recordStockTransaction({
+        transactionType: 'PURCHASE RECEIPT',
+        itemId: item.id,
+        itemSku: item.sku,
+        itemName: item.name,
+        category: item.category,
+        quantity: initialStock.quantity,
+        unitCost: item.standardCost,
+        totalValue: initialStock.quantity * item.standardCost,
+        destinationLocationId: initialStock.storeId,
+        destinationLocationName: store?.name || 'Central Warehouse',
+        beforeBalance: 0,
+        afterBalance: initialStock.quantity,
+        userId: user?.id || 'sys-admin',
+        userName: user?.name || 'Administrator',
+        userRole: user?.role || 'SUPER ADMIN',
+        referenceDocumentType: 'ADJUSTMENT_MEMO',
+        referenceDocumentId: item.sku,
+        reason: `Initial stock allocation on item master registration for ${item.name}`,
+      });
+    }
+
+    // Record in Audit Trail
+    this.addAuditLog({
+      userId: user?.id || 'sys-admin',
+      userName: user?.name || 'Administrator',
+      userRole: user?.role || 'SUPER ADMIN',
+      ipAddress: '127.0.0.1 (Client App)',
+      entityType: 'InventoryItem',
+      recordId: item.sku,
+      action: isNew ? 'Create Item Master SKU' : 'Update Item Master SKU',
+      newStateSummary: `${item.name} (${item.sku}) - Category: ${item.category}, Unit Cost: ₦${item.standardCost.toLocaleString()}`,
+      reason: isNew ? 'New item catalogue registration' : 'Specification update',
+    });
+  }
+
+  deleteItem(itemId: string, user?: EnterpriseUser): boolean {
+    const list = this.getItems();
+    const itemToDelete = list.find((i) => i.id === itemId);
+    if (!itemToDelete) return false;
+
+    // Filter out item from items list
+    const updated = list.filter((i) => i.id !== itemId);
+    setLocal('items', updated);
+    deleteDoc(doc(db, 'inventory_items', itemId)).catch(() => {});
+
+    // Remove stock balances for this item
+    const balances = this.getStockBalances();
+    const itemBalances = balances.filter((b) => b.itemId === itemId);
+    const updatedBalances = balances.filter((b) => b.itemId !== itemId);
+    setLocal('stock_balances', updatedBalances);
+    itemBalances.forEach((b) => {
+      deleteDoc(doc(db, 'store_stock_balances', b.id)).catch(() => {});
+    });
+
+    // Record audit trail for deletion
+    this.addAuditLog({
+      userId: user?.id || 'sys-admin',
+      userName: user?.name || 'Administrator',
+      userRole: user?.role || 'SUPER ADMIN',
+      ipAddress: '127.0.0.1 (Client App)',
+      entityType: 'InventoryItem',
+      recordId: itemToDelete.sku,
+      action: 'Delete Item Master SKU',
+      newStateSummary: `Deleted item master record ${itemToDelete.name} (SKU: ${itemToDelete.sku})`,
+      reason: 'Obsolete item master deletion by authorized personnel',
+    });
+
+    return true;
   }
 
   getStockBalances(): StoreStockBalance[] {
