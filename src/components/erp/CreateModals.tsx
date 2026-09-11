@@ -99,29 +99,61 @@ export default function CreateModals({
   const [commKwp, setCommKwp] = useState(120);
   const [commKwh, setCommKwh] = useState(380);
 
-  // 8. ITEM MASTER STATE
+  // 8. ITEM MASTER STATE (Starts clean and clear)
   const [itemSku, setItemSku] = useState('');
   const [itemName, setItemName] = useState('');
   const [itemCategory, setItemCategory] = useState<InventoryCategory>('SOLAR PANELS');
-  const [itemSubcategory, setItemSubcategory] = useState('Tier-1 Monocrystalline');
-  const [itemBrand, setItemBrand] = useState('Canadian Solar');
+  const [itemSubcategory, setItemSubcategory] = useState('');
+  const [itemBrand, setItemBrand] = useState('');
   const [itemModel, setItemModel] = useState('');
   const [itemUom, setItemUom] = useState<'pcs' | 'meters' | 'rolls' | 'kg' | 'sets' | 'boxes'>('pcs');
-  const [itemCost, setItemCost] = useState(115000);
-  const [itemRequiresSerial, setItemRequiresSerial] = useState(true);
-  const [itemRequiresBatch, setItemRequiresBatch] = useState(true);
-  const [itemWarrantyMonths, setItemWarrantyMonths] = useState(144);
-  const [itemReorderLevel, setItemReorderLevel] = useState(100);
-  const [itemMinStock, setItemMinStock] = useState(50);
-  const [itemMaxStock, setItemMaxStock] = useState(1500);
+  const [itemCost, setItemCost] = useState<number | ''>('');
+  const [itemRequiresSerial, setItemRequiresSerial] = useState(false);
+  const [itemRequiresBatch, setItemRequiresBatch] = useState(false);
+  const [itemWarrantyMonths, setItemWarrantyMonths] = useState<number | ''>(24);
+  const [itemReorderLevel, setItemReorderLevel] = useState<number | ''>(20);
+  const [itemMinStock, setItemMinStock] = useState<number | ''>(10);
+  const [itemMaxStock, setItemMaxStock] = useState<number | ''>(500);
   const [itemSolarTier, setItemSolarTier] = useState<SolarCapacityTier>('550W');
-  const [itemWattage, setItemWattage] = useState(550);
-  const [itemVoltage, setItemVoltage] = useState('41.5V Vmp');
-  const [itemEfficiency, setItemEfficiency] = useState(21.3);
+  const [itemWattage, setItemWattage] = useState<number | ''>(550);
+  const [itemVoltage, setItemVoltage] = useState('');
+  const [itemEfficiency, setItemEfficiency] = useState<number | ''>(21.4);
   const [itemDesc, setItemDesc] = useState('');
-  const [itemAllocateInitialStock, setItemAllocateInitialStock] = useState(true);
+  const [itemAllocateInitialStock, setItemAllocateInitialStock] = useState(false);
   const [itemInitialStoreId, setItemInitialStoreId] = useState(stores[0]?.id || '');
-  const [itemInitialQty, setItemInitialQty] = useState(100);
+  const [itemInitialQty, setItemInitialQty] = useState<number | ''>('');
+
+  const resetItemForm = () => {
+    setItemSku('');
+    setItemName('');
+    setItemCategory('SOLAR PANELS');
+    setItemSubcategory('');
+    setItemBrand('');
+    setItemModel('');
+    setItemUom('pcs');
+    setItemCost('');
+    setItemRequiresSerial(false);
+    setItemRequiresBatch(false);
+    setItemWarrantyMonths(24);
+    setItemReorderLevel(20);
+    setItemMinStock(10);
+    setItemMaxStock(500);
+    setItemSolarTier('550W');
+    setItemWattage(550);
+    setItemVoltage('');
+    setItemEfficiency(21.4);
+    setItemDesc('');
+    setItemAllocateInitialStock(false);
+    setItemInitialStoreId(stores[0]?.id || '');
+    setItemInitialQty('');
+  };
+
+  const handleModalClose = () => {
+    if (modalType === 'item') {
+      resetItemForm();
+    }
+    onClose();
+  };
 
   // 9. STOCK MOVEMENT STATE
   const [movItemId, setMovItemId] = useState(items[0]?.id || '');
@@ -449,17 +481,18 @@ export default function CreateModals({
       standardCost: Number(itemCost) || 0,
       active: true,
       solarCapacityTier: itemCategory === 'SOLAR PANELS' ? itemSolarTier : undefined,
-      wattageRating: itemCategory === 'SOLAR PANELS' ? Number(itemWattage) : undefined,
-      voltageRating: itemCategory === 'SOLAR PANELS' ? itemVoltage : undefined,
-      efficiencyPercentage: itemCategory === 'SOLAR PANELS' ? Number(itemEfficiency) : undefined,
+      wattageRating: itemCategory === 'SOLAR PANELS' && itemWattage !== '' ? Number(itemWattage) : undefined,
+      voltageRating: itemCategory === 'SOLAR PANELS' && itemVoltage ? itemVoltage : undefined,
+      efficiencyPercentage: itemCategory === 'SOLAR PANELS' && itemEfficiency !== '' ? Number(itemEfficiency) : undefined,
     };
 
-    const initialStock = itemAllocateInitialStock && itemInitialQty > 0 ? {
+    const initialStock = itemAllocateInitialStock && Number(itemInitialQty) > 0 ? {
       storeId: itemInitialStoreId || stores[0]?.id,
       quantity: Number(itemInitialQty),
     } : undefined;
 
     erpService.saveItem(newItem, currentUser, initialStock);
+    resetItemForm();
     onClose();
   };
 
@@ -502,7 +535,12 @@ export default function CreateModals({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleModalClose();
+      }}
+    >
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="p-4 bg-slate-800/80 border-b border-slate-700 flex items-center justify-between">
@@ -517,8 +555,10 @@ export default function CreateModals({
             </span>
           </div>
           <button
-            onClick={onClose}
+            type="button"
+            onClick={handleModalClose}
             className="text-slate-400 hover:text-white p-1 rounded-lg bg-slate-800 transition cursor-pointer"
+            title="Close"
           >
             <X className="h-4 w-4" />
           </button>
@@ -943,9 +983,10 @@ export default function CreateModals({
                   <input
                     type="number"
                     min={0}
+                    placeholder="e.g. 115000"
                     value={itemCost}
-                    onChange={(e) => setItemCost(Number(e.target.value))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono"
+                    onChange={(e) => setItemCost(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono placeholder-slate-600 outline-none focus:border-emerald-500"
                   />
                 </div>
                 <div>
@@ -953,9 +994,10 @@ export default function CreateModals({
                   <input
                     type="number"
                     min={1}
+                    placeholder="20"
                     value={itemReorderLevel}
-                    onChange={(e) => setItemReorderLevel(Number(e.target.value))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono"
+                    onChange={(e) => setItemReorderLevel(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono placeholder-slate-600 outline-none focus:border-emerald-500"
                   />
                 </div>
                 <div>
@@ -963,9 +1005,10 @@ export default function CreateModals({
                   <input
                     type="number"
                     min={0}
+                    placeholder="24"
                     value={itemWarrantyMonths}
-                    onChange={(e) => setItemWarrantyMonths(Number(e.target.value))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono"
+                    onChange={(e) => setItemWarrantyMonths(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono placeholder-slate-600 outline-none focus:border-emerald-500"
                   />
                 </div>
               </div>
@@ -999,18 +1042,20 @@ export default function CreateModals({
                       <label className="block text-slate-300 text-[11px] mb-1">Wattage (W)</label>
                       <input
                         type="number"
+                        placeholder="550"
                         value={itemWattage}
-                        onChange={(e) => setItemWattage(Number(e.target.value))}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                        onChange={(e) => setItemWattage(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono placeholder-slate-600 outline-none focus:border-emerald-500"
                       />
                     </div>
                     <div>
                       <label className="block text-slate-300 text-[11px] mb-1">Voltage Rating</label>
                       <input
                         type="text"
+                        placeholder="e.g. 41.5V Vmp"
                         value={itemVoltage}
                         onChange={(e) => setItemVoltage(e.target.value)}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-600 outline-none focus:border-emerald-500"
                       />
                     </div>
                     <div>
@@ -1018,9 +1063,10 @@ export default function CreateModals({
                       <input
                         type="number"
                         step={0.1}
+                        placeholder="21.4"
                         value={itemEfficiency}
-                        onChange={(e) => setItemEfficiency(Number(e.target.value))}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                        onChange={(e) => setItemEfficiency(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono placeholder-slate-600 outline-none focus:border-emerald-500"
                       />
                     </div>
                   </div>
@@ -1057,9 +1103,10 @@ export default function CreateModals({
                       <input
                         type="number"
                         min={1}
+                        placeholder="e.g. 50"
                         value={itemInitialQty}
-                        onChange={(e) => setItemInitialQty(Number(e.target.value))}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                        onChange={(e) => setItemInitialQty(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono placeholder-slate-600 outline-none focus:border-emerald-500"
                       />
                     </div>
                   </div>
@@ -1069,16 +1116,17 @@ export default function CreateModals({
               <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleModalClose}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition cursor-pointer"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition cursor-pointer flex items-center gap-1.5"
                 >
-                  Save Item Master SKU
+                  <CheckCircle className="h-4 w-4" />
+                  <span>Save & Close</span>
                 </button>
               </div>
             </form>

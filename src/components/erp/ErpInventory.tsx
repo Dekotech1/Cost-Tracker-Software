@@ -87,29 +87,60 @@ export default function ErpInventory({
   const [movementItem, setMovementItem] = useState<InventoryItemMaster | null>(null);
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
 
-  // Form State for Add Item
+  // Form State for Add Item (starts clean and clear)
   const [newItemName, setNewItemName] = useState('');
   const [newItemSku, setNewItemSku] = useState('');
   const [newItemCategory, setNewItemCategory] = useState<InventoryCategory>('SOLAR PANELS');
-  const [newItemSubcategory, setNewItemSubcategory] = useState('Tier-1 Monocrystalline');
-  const [newItemBrand, setNewItemBrand] = useState('Canadian Solar');
+  const [newItemSubcategory, setNewItemSubcategory] = useState('');
+  const [newItemBrand, setNewItemBrand] = useState('');
   const [newItemModel, setNewItemModel] = useState('');
   const [newItemUom, setNewItemUom] = useState<'pcs' | 'meters' | 'rolls' | 'kg' | 'sets' | 'boxes'>('pcs');
-  const [newItemCost, setNewItemCost] = useState(115000);
-  const [newItemRequiresSerial, setNewItemRequiresSerial] = useState(true);
-  const [newItemRequiresBatch, setNewItemRequiresBatch] = useState(true);
-  const [newItemWarrantyMonths, setNewItemWarrantyMonths] = useState(144);
-  const [newItemReorderLevel, setNewItemReorderLevel] = useState(100);
-  const [newItemMinStock, setNewItemMinStock] = useState(50);
-  const [newItemMaxStock, setNewItemMaxStock] = useState(2500);
+  const [newItemCost, setNewItemCost] = useState<number | ''>('');
+  const [newItemRequiresSerial, setNewItemRequiresSerial] = useState(false);
+  const [newItemRequiresBatch, setNewItemRequiresBatch] = useState(false);
+  const [newItemWarrantyMonths, setNewItemWarrantyMonths] = useState<number | ''>(24);
+  const [newItemReorderLevel, setNewItemReorderLevel] = useState<number | ''>(20);
+  const [newItemMinStock, setNewItemMinStock] = useState<number | ''>(10);
+  const [newItemMaxStock, setNewItemMaxStock] = useState<number | ''>(500);
   const [newItemSolarTier, setNewItemSolarTier] = useState<SolarCapacityTier>('550W');
-  const [newItemWattage, setNewItemWattage] = useState(550);
-  const [newItemVoltage, setNewItemVoltage] = useState('41.5V Vmp');
-  const [newItemEfficiency, setNewItemEfficiency] = useState(21.4);
+  const [newItemWattage, setNewItemWattage] = useState<number | ''>(550);
+  const [newItemVoltage, setNewItemVoltage] = useState('');
+  const [newItemEfficiency, setNewItemEfficiency] = useState<number | ''>(21.4);
   const [newItemDesc, setNewItemDesc] = useState('');
-  const [newAllocateInitialStock, setNewAllocateInitialStock] = useState(true);
+  const [newAllocateInitialStock, setNewAllocateInitialStock] = useState(false);
   const [newInitialStoreId, setNewInitialStoreId] = useState(stores[0]?.id || '');
-  const [newInitialQty, setNewInitialQty] = useState(100);
+  const [newInitialQty, setNewInitialQty] = useState<number | ''>('');
+
+  // Clears all form fields to ensure space is pristine once closed or saved
+  const resetAddForm = () => {
+    setNewItemName('');
+    setNewItemSku('');
+    setNewItemCategory('SOLAR PANELS');
+    setNewItemSubcategory('');
+    setNewItemBrand('');
+    setNewItemModel('');
+    setNewItemUom('pcs');
+    setNewItemCost('');
+    setNewItemRequiresSerial(false);
+    setNewItemRequiresBatch(false);
+    setNewItemWarrantyMonths(24);
+    setNewItemReorderLevel(20);
+    setNewItemMinStock(10);
+    setNewItemMaxStock(500);
+    setNewItemSolarTier('550W');
+    setNewItemWattage(550);
+    setNewItemVoltage('');
+    setNewItemEfficiency(21.4);
+    setNewItemDesc('');
+    setNewAllocateInitialStock(false);
+    setNewInitialStoreId(stores[0]?.id || '');
+    setNewInitialQty('');
+  };
+
+  const handleCloseAddModal = () => {
+    resetAddForm();
+    setIsAddModalOpen(false);
+  };
 
   // Form State for Quick Stock Movement
   const [movStoreId, setMovStoreId] = useState(stores[0]?.id || '');
@@ -178,13 +209,13 @@ export default function ErpInventory({
       standardCost: Number(newItemCost) || 0,
       active: true,
       solarCapacityTier: newItemCategory === 'SOLAR PANELS' ? newItemSolarTier : undefined,
-      wattageRating: newItemCategory === 'SOLAR PANELS' ? Number(newItemWattage) : undefined,
-      voltageRating: newItemCategory === 'SOLAR PANELS' ? newItemVoltage : undefined,
-      efficiencyPercentage: newItemCategory === 'SOLAR PANELS' ? Number(newItemEfficiency) : undefined,
+      wattageRating: newItemCategory === 'SOLAR PANELS' && newItemWattage !== '' ? Number(newItemWattage) : undefined,
+      voltageRating: newItemCategory === 'SOLAR PANELS' && newItemVoltage ? newItemVoltage : undefined,
+      efficiencyPercentage: newItemCategory === 'SOLAR PANELS' && newItemEfficiency !== '' ? Number(newItemEfficiency) : undefined,
     };
 
     const initialStock =
-      newAllocateInitialStock && newInitialQty > 0
+      newAllocateInitialStock && Number(newInitialQty) > 0
         ? {
             storeId: newInitialStoreId || stores[0]?.id,
             quantity: Number(newInitialQty),
@@ -193,13 +224,9 @@ export default function ErpInventory({
 
     erpService.saveItem(newItem, currentUser, initialStock);
     refreshData();
+    resetAddForm();
     setIsAddModalOpen(false);
-
-    // Reset form
-    setNewItemName('');
-    setNewItemSku('');
-    setNewItemDesc('');
-    showToast(`Item SKU "${newItem.sku}" created successfully!`);
+    showToast(`Item SKU "${newItem.sku}" saved and created successfully!`);
   };
 
   // Handle Edit Item Submit
@@ -886,7 +913,12 @@ export default function ErpInventory({
       {/* MODAL 1: ADD NEW ITEM MASTER SKU */}
       {/* ==================================================================== */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseAddModal();
+          }}
+        >
           <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="p-4 bg-slate-800/80 border-b border-slate-700 flex items-center justify-between">
@@ -895,8 +927,10 @@ export default function ErpInventory({
                 <span className="font-bold text-white text-sm">Add New Item Master SKU</span>
               </div>
               <button
-                onClick={() => setIsAddModalOpen(false)}
+                type="button"
+                onClick={handleCloseAddModal}
                 className="text-slate-400 hover:text-white p-1 rounded-lg bg-slate-800 transition cursor-pointer"
+                title="Close"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1010,9 +1044,10 @@ export default function ErpInventory({
                   <input
                     type="number"
                     min={0}
+                    placeholder="e.g. 115000"
                     value={newItemCost}
-                    onChange={(e) => setNewItemCost(Number(e.target.value))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 outline-none"
+                    onChange={(e) => setNewItemCost(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono placeholder-slate-600 focus:border-emerald-500 outline-none"
                   />
                 </div>
                 <div>
@@ -1020,9 +1055,10 @@ export default function ErpInventory({
                   <input
                     type="number"
                     min={1}
+                    placeholder="20"
                     value={newItemReorderLevel}
-                    onChange={(e) => setNewItemReorderLevel(Number(e.target.value))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 outline-none"
+                    onChange={(e) => setNewItemReorderLevel(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono placeholder-slate-600 focus:border-emerald-500 outline-none"
                   />
                 </div>
                 <div>
@@ -1030,9 +1066,10 @@ export default function ErpInventory({
                   <input
                     type="number"
                     min={0}
+                    placeholder="24"
                     value={newItemWarrantyMonths}
-                    onChange={(e) => setNewItemWarrantyMonths(Number(e.target.value))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 outline-none"
+                    onChange={(e) => setNewItemWarrantyMonths(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono placeholder-slate-600 focus:border-emerald-500 outline-none"
                   />
                 </div>
               </div>
@@ -1068,8 +1105,9 @@ export default function ErpInventory({
                       <label className="block text-slate-300 text-[11px] mb-1">Wattage (W)</label>
                       <input
                         type="number"
+                        placeholder="550"
                         value={newItemWattage}
-                        onChange={(e) => setNewItemWattage(Number(e.target.value))}
+                        onChange={(e) => setNewItemWattage(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-emerald-500 outline-none"
                       />
                     </div>
@@ -1077,9 +1115,10 @@ export default function ErpInventory({
                       <label className="block text-slate-300 text-[11px] mb-1">Voltage Rating</label>
                       <input
                         type="text"
+                        placeholder="e.g. 41.5V Vmp"
                         value={newItemVoltage}
                         onChange={(e) => setNewItemVoltage(e.target.value)}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-emerald-500 outline-none"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-600 focus:border-emerald-500 outline-none"
                       />
                     </div>
                     <div>
@@ -1087,8 +1126,9 @@ export default function ErpInventory({
                       <input
                         type="number"
                         step={0.1}
+                        placeholder="21.4"
                         value={newItemEfficiency}
-                        onChange={(e) => setNewItemEfficiency(Number(e.target.value))}
+                        onChange={(e) => setNewItemEfficiency(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-emerald-500 outline-none"
                       />
                     </div>
@@ -1156,9 +1196,10 @@ export default function ErpInventory({
                       <input
                         type="number"
                         min={1}
+                        placeholder="e.g. 50"
                         value={newInitialQty}
-                        onChange={(e) => setNewInitialQty(Number(e.target.value))}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-emerald-500 outline-none"
+                        onChange={(e) => setNewInitialQty(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono placeholder-slate-600 focus:border-emerald-500 outline-none"
                       />
                     </div>
                   </div>
@@ -1180,16 +1221,17 @@ export default function ErpInventory({
               <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsAddModalOpen(false)}
+                  onClick={handleCloseAddModal}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition cursor-pointer"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition cursor-pointer flex items-center gap-1.5"
                 >
-                  Save Item Master SKU
+                  <CheckCircle className="h-4 w-4" />
+                  <span>Save & Close</span>
                 </button>
               </div>
             </form>
